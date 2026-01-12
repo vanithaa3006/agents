@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LangChain 1.0 – Agent Streaming Hands-on Lab</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p {
+      margin: 0.5rem 0 0.75rem;
+    }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul {
+      padding-left: 1.4rem;
+    }
+    li {
+      margin: 0.25rem 0;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>LangChain 1.0 – Agent Streaming Hands-on Lab</h1>
+
+  <div class="note">
+    <strong>How to use this guide</strong>
+    <ol>
+      <li>Open your code editor (VS Code / Cursor / Jupyter / any IDE) and a terminal.</li>
+      <li>Create a new Jupyter notebook file named, for example, <code>06-agent-streaming.ipynb</code> and run all code in separate notebook cells.</li>
+      <li>Place this HTML guide side‑by‑side with your editor.</li>
+      <li>Whenever you see a section titled <strong>Your Task</strong>, follow the instructions and copy or type the code into a <strong>new cell in your notebook</strong>.</li>
+      <li>Run each new notebook cell step‑by‑step and observe the outputs to understand how agent streaming works in LangChain 1.0.</li>
+    </ol>
+  </div>
+
+  <h2>1. What is Agent Streaming?</h2>
+  <p>
+    In this lab you will learn how to stream <strong>agent progress</strong>, <strong>LLM tokens</strong>, and <strong>custom updates</strong>
+    from your tools. This will help you build interactive applications where users can see what the agent is doing in real time.
+  </p>
+
+  <h3>1.1 Overview</h3>
+  <p>
+    An <strong>agent</strong> in LangChain 1.0 is a model that can decide when to call tools and how to combine their results.
+    <strong>Streaming</strong> lets you see these decisions and responses as they happen instead of waiting for a single final answer.
+  </p>
+
+  <h2>2. Setup and Imports</h2>
+  <p>
+    First, you will import the core libraries, load environment variables, and configure the base language model. Make sure your
+    <code>.env</code> file contains a valid API key (for example <code>OPENAI_API_KEY</code>).
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create a <strong>new cell</strong> in your notebook, paste or type the following code, and execute the cell to import the required packages and load your environment variables.</p>
+  </div>
+
+  <pre><code># Import necessary libraries for LangChain 1.0
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+from langchain.tools import tool
+from langchain.agents import create_agent
+from langchain.messages import HumanMessage
+from typing import Annotated
+import os
+import time
+
+# Load environment variables from .env file
+load_dotenv()</code></pre>
+
+  <h2>3. Creating Tools for the Agent</h2>
+  <p>
+    Before you explore streaming, you will create a couple of simple tools that simulate real‑world operations like fetching
+    weather data and calculating travel time. These tools will be used by the agent in later sections.
+  </p>
+  <p><strong>What this code does:</strong></p>
+  <ul>
+    <li>Defines two tools: <code>get_weather</code> and <code>calculate_travel_time</code>.</li>
+    <li>Uses the <code>@tool</code> decorator so LangChain can automatically expose them to the agent.</li>
+    <li>Adds small <code>time.sleep()</code> delays to behave more like real API calls.</li>
+  </ul>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create another <strong>new cell</strong>, paste or type the code below, and run it to register your tools.</p>
+  </div>
+
+  <pre><code>@tool
+def get_weather(city: str) -> str:
+    """Get the current weather for a specified city."""
+    # Simulate API call delay
+    time.sleep(5)
+    
+    # Mock weather responses for different cities
+    weather_data = {
+        "new york": "Partly cloudy, 22°C with light winds",
+        "london": "Rainy, 15°C with moderate winds", 
+        "tokyo": "Sunny, 28°C with clear skies",
+        "paris": "Overcast, 18°C with occasional showers",
+        "sydney": "Sunny, 25°C with gentle breeze"
+    }
+    
+    city_lower = city.lower()
+    if city_lower in weather_data:
+        return f"Weather in {city}: {weather_data[city_lower]}"
+    else:
+        return f"Weather in {city}: Sunny, 24°C (default forecast)"
+
+@tool
+def calculate_travel_time(origin: str, destination: str) -> str:
+    """Calculate estimated travel time between two locations."""
+    # Simulate calculation delay
+    time.sleep(3)
+    
+    # Mock travel time calculation
+    import random
+    hours = random.randint(1, 12)
+    minutes = random.randint(0, 59)
+    
+    return f"Estimated travel time from {origin} to {destination}: {hours}h {minutes}m by car"
+
+print("✅ Tools created successfully!")</code></pre>
+
+  <h2>4. Creating the Agent</h2>
+  <p>
+    Now you will create an agent powered by the <code>gpt-4.1-mini</code> model and connect it to the tools you just defined.
+    Setting <code>streaming=True</code> enables streaming responses from the model and the agent.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Add a <strong>new cell</strong>, paste or type the following code, and execute it to initialize the language model and create the agent with your tools.</p>
+  </div>
+
+  <pre><code># Initialize the language model
+llm = ChatOpenAI(
+    model="gpt-4.1-mini",  # GPT-4.1-mini (using the correct model name)
+    streaming=True,
+)
+
+# Create our agent with the tools
+tools = [get_weather, calculate_travel_time]
+agent = create_agent(llm, tools)</code></pre>
+
+  <h2>5. Streaming Agent Progress</h2>
+  <p>
+    The first type of streaming you will explore is <strong>agent progress streaming</strong>. This shows you each step the
+    agent takes as it thinks, calls tools, and builds the final answer.
+  </p>
+
+  <h3>5.1 Understanding Agent Progress</h3>
+  <p>When an agent processes a request, it usually goes through these stages:</p>
+  <ol>
+    <li><strong>Model node</strong> – the model decides which tools to call and with what arguments.</li>
+    <li><strong>Tools node</strong> – the tools execute and return results (possibly with some delay).</li>
+    <li><strong>Model node</strong> – the model reads tool outputs and composes the final user‑facing answer.</li>
+  </ol>
+  <p>
+    With <code>stream_mode="updates"</code>, you can observe each of these nodes as separate streaming updates, which is very
+    helpful for debugging and teaching how agents work internally.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create a <strong>new cell</strong>, paste or type the code below, and run it to stream step‑by‑step agent progress for a weather and travel query.</p>
+  </div>
+
+  <pre><code># Define our query
+query = "What's the weather like in Tokyo? Also, how long would it take to travel from Tokyo to Osaka?"
+
+# Stream the agent's progress
+for i, chunk in enumerate(agent.stream(
+    {"messages": [HumanMessage(content=query)]},
+    stream_mode="updates"
+), 1):
+    print(f"📍 Step {i}:")
+    
+    for node_name, data in chunk.items():
+        print(f"  🏷️  Node: {node_name}")
+        
+        # Extract and display the latest message
+        if 'messages' in data and data['messages']:
+            latest_message = data['messages'][-1]
+            
+            if hasattr(latest_message, 'content'):
+                print(f"Content: {latest_message.content}")
+            
+            if hasattr(latest_message, 'tool_calls') and latest_message.tool_calls:
+                for tool_call in latest_message.tool_calls:
+                    print(f"  🔧 Tool Call: {tool_call['name']} with args {tool_call['args']}")
+    
+    print("  " + "-" * 40)
+
+print("\n✅ Agent execution completed!")</code></pre>
+
+  <h2>6. Streaming LLM Tokens</h2>
+  <p>
+    Next, you will look at <strong>token streaming</strong>, which is the "typing" effect often seen in chat UIs. Instead of
+    waiting for the full response, you receive and display tokens (small pieces of text) as soon as they are generated.
+  </p>
+
+  <h3>6.1 Understanding Token Streaming</h3>
+  <p>
+    When an LLM responds, it generates text token by token. Using <code>stream_mode="messages"</code>, you can stream
+    <code>AIMessageChunk</code> objects that contain these partial tokens and render them in real time.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create a <strong>new cell</strong>, paste or type the code below, and execute it to see the agent streaming a multi‑bullet response about Elon Musk token by token.</p>
+  </div>
+
+  <pre><code>from langchain_core.messages import AIMessageChunk
+
+query = "Tell me about Elon Musk in 10 bullet points"
+
+print(f"🙋 User: {query}")
+print("🤖 Agent: ", end="", flush=True)
+
+# Stream individual tokens
+full_response = ""
+
+for chunk in agent.stream(
+    {"messages": [HumanMessage(content=query)]},
+    stream_mode="messages"
+):
+    # Check if it's an AI message chunk
+    if isinstance(chunk[0], AIMessageChunk) :       
+        print(chunk[0].content, end="", flush=True)
+        full_response += chunk[0].content
+
+print("\n\n✅ Full response received:")
+print(full_response)</code></pre>
+
+  <h2>7. Custom Streaming Updates from Tools</h2>
+  <p>
+    Sometimes you need <strong>custom progress updates</strong> from inside a tool, for example when doing a long‑running
+    analysis. LangGraph lets your tools send their own streaming messages so users can see intermediate status like a progress bar.
+  </p>
+
+  <h3>7.1 Understanding Custom Updates</h3>
+  <p><strong>Custom updates</strong> are arbitrary strings you stream from inside a tool while it is running. They are perfect for:</p>
+  <ul>
+    <li>Long data processing jobs.</li>
+    <li>Slow external API calls.</li>
+    <li>Multi‑step analyses where you want to narrate each step.</li>
+  </ul>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Add a <strong>new cell</strong>, paste or type the following code, and run it to create a custom tool that streams its own progress updates while analyzing market trends.</p>
+  </div>
+
+  <pre><code># Import the stream writer for custom updates
+from langgraph.config import get_stream_writer
+
+# Create a new tool with custom streaming updates
+@tool
+def analyze_market_trends(stock_symbol: str) -> str:
+    """Analyze market trends for a given stock symbol with detailed progress updates."""
+    writer = get_stream_writer()
+    
+    # Simulate a multi-step analysis process
+    writer(f"📊 Starting analysis for {stock_symbol.upper()}...")
+    time.sleep(5)
+    
+    writer(f"📈 Fetching historical price data...")
+    time.sleep(5)
+    
+    writer(f"🔍 Analyzing volume patterns...")
+    time.sleep(5)
+    
+    writer(f"🧮 Calculating technical indicators...")
+    time.sleep(5)
+    
+    writer(f"📊 Generating trend analysis report...")
+    time.sleep(5)
+    
+    writer(f"✅ Analysis complete for {stock_symbol.upper()}!")
+    
+    # Return the final analysis
+    trends = ["Bullish momentum", "Strong volume support", "Positive outlook"]
+    return f"Market analysis for {stock_symbol.upper()}: {', '.join(trends)}"
+
+# Create a new agent with our custom streaming tool
+custom_tools = [get_weather, calculate_travel_time, analyze_market_trends]
+custom_agent = create_agent(llm, custom_tools)
+
+print("🛠️ Custom Streaming Tool created!")
+print("This tool will show progress updates as it works...")</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Finally, create one more <strong>new cell</strong>, paste or type the code below, and execute it to see the custom streaming updates from your new tool in action.</p>
+  </div>
+
+  <pre><code>print("📡 Custom Updates Streaming Example")
+print("=" * 50)
+print("Watch custom progress updates from inside the tool...\n")
+
+query = "Can you analyze the market trends for AAPL stock?"
+print(f"🙋 User: {query}\n")
+
+# Stream custom updates
+for chunk in custom_agent.stream(
+    {"messages": [HumanMessage(content=query)]},
+    stream_mode="custom"
+):
+    # Custom updates are simple strings
+    print(f"🔔 {chunk}")
+    time.sleep(0.1)  # Small delay to see the streaming effect
+
+print("\n✅ Custom streaming completed!")
+print("Notice how you got real-time updates from inside the tool execution!")</code></pre>
+
+  <h2>8. Wrap-Up</h2>
+  <p>In this lab you:</p>
+  <ul>
+    <li>Set up LangChain 1.0 with an agent that can use multiple tools.</li>
+    <li>Streamed <strong>agent progress</strong> to see each internal node and tool call.</li>
+    <li>Streamed <strong>LLM tokens</strong> to create a real‑time typing effect in your UI.</li>
+    <li>Implemented <strong>custom streaming updates</strong> from inside a tool using <code>get_stream_writer()</code>.</li>
+  </ul>
+  <p>
+    You can now adapt these patterns to your own agents and tools to make your applications more transparent and interactive for end users.
+  </p>
+
+</main>
+</body>
+</html>
+
+

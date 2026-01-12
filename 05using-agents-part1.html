@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LangChain 1.0 Agents – Hands-on Guide (Part 1)</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p {
+      margin: 0.5rem 0 0.75rem;
+    }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul {
+      padding-left: 1.4rem;
+    }
+    li {
+      margin: 0.25rem 0;
+    }
+    .sample-output-title {
+      font-weight: 600;
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>LangChain 1.0 Agents – Hands-on Lab (Part 1)</h1>
+
+  <div class="note">
+    <strong>How to use this lab</strong>
+    <ol>
+      <li>Open your code editor or Jupyter Notebook and create a notebook named <code>05-using-agents.ipynb</code> (or reuse the existing one).</li>
+      <li>Place this HTML guide side‑by‑side with your notebook.</li>
+      <li>Each time you see a section titled <strong>Your Task</strong>, create a <strong>new cell</strong> in your notebook and copy or type the code.</li>
+      <li>Run the cells in order and carefully read the explanations and printed outputs to understand how agents work.</li>
+      <li>Feel free to experiment by modifying prompts, tools, and parameters after the main tasks.</li>
+    </ol>
+  </div>
+
+  <h2>1. Getting Started</h2>
+  <p>
+    In this lab, you will build intelligent <strong>LangChain 1.0 agents</strong> that can use tools like calculators, web search,
+    weather APIs, databases, and even code execution. You will also learn about <strong>middleware</strong>, <strong>dynamic models</strong>,
+    <strong>structured output</strong>, and <strong>natural memory</strong>.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In your terminal (not inside the notebook), install the required agent and tool packages.</p>
+  </div>
+
+  <pre><code>pip install langchain langchain-openai langchain-community langchain-tavily tavily-python python-dotenv pydantic sqlalchemy</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create a <strong>new notebook cell</strong>, import the core libraries, and load environment variables from your <code>.env</code> file.</p>
+  </div>
+
+  <pre><code># Import necessary libraries and set up environment
+import os
+from dotenv import load_dotenv
+from typing import Literal, Dict, Any, TypedDict
+import json
+
+load_dotenv()</code></pre>
+
+  <h2>2. Introduction to Agents and the ReAct Pattern</h2>
+
+  <h3>2.1 What Is an Agent?</h3>
+  <p>
+    An <strong>agent</strong> is a system that uses a language model to decide <em>which tools to use</em> and <em>how to use them</em> in order
+    to accomplish a goal. Agents follow the <strong>ReAct (Reasoning + Acting)</strong> pattern: they think, act with tools, observe,
+    and repeat until they can give a final answer.
+  </p>
+  <p>
+    We will start with a simple agent that can calculate expressions and tell the current time.
+  </p>
+
+  <h3>2.2 ReAct Pattern: How Agents Work</h3>
+  <p><strong>ReAct = Reasoning + Acting</strong>. Agents follow this loop:</p>
+  <ol>
+    <li><strong>Reason</strong>: Think about what to do next.</li>
+    <li><strong>Act</strong>: Use a tool or provide an answer.</li>
+    <li><strong>Observe</strong>: Look at the tool result.</li>
+    <li><strong>Repeat</strong>: Continue until the task is complete.</li>
+  </ol>
+  <p>
+    For example, if the user asks: <em>"What's 15 × 23 and the weather in Paris?"</em>, the agent:
+  </p>
+  <ul>
+    <li>Reasons: it needs a calculation <strong>and</strong> weather data.</li>
+    <li>Acts: calls a calculator tool → gets <code>345</code>.</li>
+    <li>Acts: calls a weather tool → gets something like <code>sunny, 22°C</code>.</li>
+    <li>Responds with a combined, natural-language answer.</li>
+  </ul>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a basic agent that can perform calculations and tell the current time. Copy the code below into a new notebook
+      cell and run it.
+    </p>
+  </div>
+
+  <pre><code>from langchain.agents import create_agent
+from langchain.tools import tool
+from langchain_openai import ChatOpenAI
+
+# Initialize the model
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+# Define simple tools
+@tool
+def calculator(expression: str) -> str:
+    """Perform basic mathematical calculations.
+    
+    Args:
+        expression: A mathematical expression to evaluate (e.g., "2 + 3 * 4")
+    """
+    try:
+        result = eval(expression)
+        return f"Result: {result}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@tool
+def get_time() -> str:
+    """Get the current time."""
+    from datetime import datetime
+    return f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+# Create the agent with tools
+basic_agent = create_agent(
+    model=model,
+    tools=[calculator, get_time],
+    system_prompt="You are a helpful assistant that can perform calculations and tell time."
+)
+
+print("Basic agent created successfully!")</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Test the basic agent by asking it to both calculate an expression and tell you the current time. Add the code below
+      to a new cell and run it.
+    </p>
+  </div>
+
+  <pre><code># Test the basic agent
+result = basic_agent.invoke({
+    "messages": [{"role": "user", "content": "What is 15 * 7 + 23? Also, what time is it?"}]
+})
+
+print("Agent Response:")
+print(result["messages"][-1].content)</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Now inspect the <strong>full list of messages</strong> exchanged between the agent and the LLM.
+      Notice that there can be <strong>parallel tool calls</strong> and corresponding <code>ToolMessage</code> objects.
+    </p>
+  </div>
+
+  <pre><code>result["messages"]</code></pre>
+
+  <h2>3. Defining and Using Tools</h2>
+
+  <h3>3.1 What Are Tools?</h3>
+  <p>
+    <strong>Tools</strong> are functions that agents can call to interact with the outside world: APIs, databases, files, web search,
+    and more. LLMs alone cannot access real-time data or perform reliable calculations – tools bridge that gap.
+  </p>
+  <p>
+    Good tools have:
+  </p>
+  <ul>
+    <li>Clear, descriptive docstrings (so the model knows when to use them).</li>
+    <li>Typed arguments (often with Pydantic models) for validation.</li>
+    <li>Safe error handling.</li>
+  </ul>
+
+  <h3>3.2 Weather Tool with OpenWeatherMap</h3>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Install the OpenWeatherMap Python client so you can use LangChain's OpenWeatherMap tools.
+      Run this command in your terminal.
+    </p>
+  </div>
+
+  <pre><code>pip install pyowm</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Use LangChain's OpenWeatherMap utility to build a weather tool.
+      Copy the code below into a new cell and run it.
+    </p>
+  </div>
+
+  <pre><code># Method 2: Using OpenWeatherMap tool from LangChain
+from langchain_community.tools.openweathermap import OpenWeatherMapQueryRun
+from langchain_community.utilities.openweathermap import OpenWeatherMapAPIWrapper
+from pydantic import BaseModel, Field
+
+# Initialize OpenWeatherMap tool with API wrapper
+openweather_wrapper = OpenWeatherMapAPIWrapper()
+#get_weather = OpenWeatherMapQueryRun(api_wrapper=openweather_wrapper)
+
+# Alternative: Custom tool using OpenWeatherMap if you need more control
+class WeatherInput(BaseModel):
+    location: str = Field(description="The city and state/country")
+
+@tool(args_schema=WeatherInput)
+def get_weather(location: str) -> str:
+    """Get detailed current weather information for a specific location using OpenWeatherMap."""
+    try:
+        # Use the wrapper directly for more detailed response
+        print(f"Fetching weather data for: {location}")
+        weather_data = openweather_wrapper.run(location)
+        return weather_data
+    except Exception as e:
+        return f"Error getting weather data: {str(e)}"</code></pre>
+
+  <h3>3.3 File Tools (Read/Write)</h3>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add tools that can write to and read from files. These are useful when agents need to persist results
+      (for example, saving a report).
+    </p>
+  </div>
+
+  <pre><code>@tool
+def write_file(filename: str, content: str) -> str:
+    """Write content to a file with proper UTF-8 encoding.
+    
+    Args:
+        filename: Name of the file to write
+        content: Content to write to the file
+    """
+    try:
+        print(f"Writing to {filename}", "content:", content[:100] + "..." if len(content) &gt; 100 else content)
+        # Use UTF-8 encoding to handle Unicode characters properly
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(content)
+            print(f"Successfully wrote content to {filename}")
+        return f"Successfully wrote content to {filename}"
+    except Exception as e:
+        print(f"Error writing to {filename}: {str(e)}")
+        return f"Error writing file: {str(e)}"
+
+@tool
+def read_file(filename: str) -> str:
+    """Read content from a file with proper UTF-8 encoding.
+    
+    Args:
+        filename: Name of the file to read
+    """
+    try:
+        print(f"Reading from {filename}")
+        # Use UTF-8 encoding to handle Unicode characters properly
+        with open(filename, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return f"File content: {content}"
+    except Exception as e:
+        return f"Error reading file: {str(e)}"</code></pre>
+
+  <h3>3.4 Tavily Web Search Tool</h3>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a custom web search tool using Tavily. Make sure you have a valid <code>TAVILY_API_KEY</code> set
+      in your environment.
+    </p>
+  </div>
+
+  <pre><code># Custom Tavily web search function
+from tavily import TavilyClient
+from langchain.tools import tool
+from pydantic import BaseModel, Field
+from typing import Optional
+
+# Initialize Tavily client
+tavily_client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+
+@tool
+def web_search(query: str, max_results: int = 5) -> str:
+    """Search the web using Tavily.
+    
+    Args:
+        query: Search query
+        max_results: Maximum number of results to return
+    """
+    try:
+        print("Performing web search...")
+        response = tavily_client.search(
+            query=query,
+            max_results=max_results,
+            include_raw_content=False
+        )
+        # Return the Tavily response directly for simplicity
+        return response
+    except Exception as e:
+        return f"Error performing web search: {str(e)}"
+
+print("Custom Tavily search tool created!")</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create an agent that combines web search, weather, and file tools. Ask it to search, get weather, and save
+      the combined results to a file.
+    </p>
+  </div>
+
+  <pre><code># Create agent with custom tools
+tools_agent = create_agent(
+    model=model,
+    tools=[web_search, get_weather, write_file, read_file],
+    system_prompt="You are a helpful assistant with access to web search, weather, and file operations."
+)
+
+# Test the tools
+result = tools_agent.invoke({
+    "messages": [{
+        "role": "user", 
+        "content": "Search for Sivaprasad valluru , get weather for Bangalore, and write the results to a file called 'results.txt'"
+    }]
+})</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Print the final agent response so you can see a summary of what it did.</p>
+  </div>
+
+  <pre><code>print("Agent Response:")
+print(result["messages"][-1].content)</code></pre>
+
+  <h3>3.5 Using the Predefined LangChain Tavily Tool</h3>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      LangChain already provides a Tavily search tool. First, install the package and then use the predefined tool.
+    </p>
+  </div>
+
+  <pre><code>pip install langchain-tavily</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create the predefined Tavily search tool by copying and running the code below.</p>
+  </div>
+
+  <pre><code># Using the predefined LangChain Tavily tool
+from  langchain_tavily import TavilySearch
+# Create predefined Tavily tool
+tavily_tool = TavilySearch(
+    max_results=3,
+    search_depth="advanced",
+    include_answer=True,
+    include_raw_content=False,
+    include_images=False
+)
+
+print("Predefined Tavily tool created!")</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Build a web search agent using the predefined Tavily tool and a calculator. Ask it about recent AI developments.
+    </p>
+  </div>
+
+  <pre><code># Create agent with web search capabilities
+web_search_agent = create_agent(
+    model=model,
+    tools=[tavily_tool, calculator],
+    system_prompt="You are a research assistant with web search capabilities. Use web search to find current information and provide accurate, up-to-date responses."
+)
+
+# Test web search
+result = web_search_agent.invoke({
+    "messages": [{
+        "role": "user", 
+        "content": "What are the latest developments in artificial intelligence in November 2025?"
+    }]
+})
+
+print("Web Search Agent Response:")
+print(result["messages"][-1].content)</code></pre>
+
+  <h2>4. Database Tools and Database Agents</h2>
+
+  <h3>4.1 Natural Language to SQL</h3>
+  <p>
+    Database agents convert plain English questions into SQL queries, execute them safely, and then turn the results back
+    into human-friendly answers.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a small sample SQLite database with <code>employees</code> and <code>departments</code> tables and populate it with data.
+    </p>
+  </div>
+
+  <pre><code>import sqlite3
+from langchain_community.utilities import SQLDatabase
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+
+# Create a sample SQLite database
+def create_sample_database():
+    conn = sqlite3.connect('sample_company.db')
+    cursor = conn.cursor()
+    
+    # Create employees table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS employees (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            department TEXT,
+            salary REAL,
+            hire_date DATE
+        )
+    ''')
+    
+    # Create departments table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS departments (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            budget REAL
+        )
+    ''')
+    
+    # Insert sample data
+    employees_data = [
+        (1, 'John Smith', 'Engineering', 75000, '2022-01-15'),
+        (2, 'Jane Doe', 'Marketing', 65000, '2021-03-10'),
+        (3, 'Bob Johnson', 'Engineering', 80000, '2020-07-22'),
+        (4, 'Alice Brown', 'HR', 60000, '2023-02-01'),
+        (5, 'Charlie Wilson', 'Marketing', 70000, '2022-11-30')
+    ]
+    
+    departments_data = [
+        (1, 'Engineering', 500000),
+        (2, 'Marketing', 200000),
+        (3, 'HR', 150000)
+    ]
+    
+    cursor.executemany('INSERT OR REPLACE INTO employees VALUES (?, ?, ?, ?, ?)', employees_data)
+    cursor.executemany('INSERT OR REPLACE INTO departments VALUES (?, ?, ?)', departments_data)
+    
+    conn.commit()
+    conn.close()
+    print("Sample database created successfully!")
+
+# Create the database
+create_sample_database()</code></pre>
+
+  <p class="sample-output-title">Sample Output (for reference)</p>
+  <pre><code>Sample database created successfully!</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Connect to the SQLite database using <code>SQLDatabase</code>, build a <code>SQLDatabaseToolkit</code>, and inspect the
+      available tools.
+    </p>
+  </div>
+
+  <pre><code># Set up database connection and toolkit
+db = SQLDatabase.from_uri("sqlite:///sample_company.db")
+
+# Create SQL database toolkit
+toolkit = SQLDatabaseToolkit(db=db, llm=model)
+tools = toolkit.get_tools()
+
+# Display available tools
+print("Available database tools:")
+for tool in tools:
+    print(f"- {tool.name}: {tool.description}")
+print("\n" + "="*50 + "\n")</code></pre>
+
+  <p class="sample-output-title">Sample Output (for reference)</p>
+  <pre><code>Available database tools:
+- sql_db_query: Input to this tool is a detailed and correct SQL query, output is a result from the database. If the query is not correct, an error message will be returned. If an error is returned, rewrite the query, check the query, and try again. If you encounter an issue with Unknown column 'xxxx' in 'field list', use sql_db_schema to query the correct table fields.
+- sql_db_schema: Input to this tool is a comma-separated list of tables, output is the schema and sample rows for those tables. Be sure that the tables actually exist by calling sql_db_list_tables first! Example Input: table1, table2, table3
+- sql_db_list_tables: Input is an empty string, output is a comma-separated list of tables in the database.
+- sql_db_query_checker: Use this tool to double check if your query is correct before executing it. Always use this tool before executing a query with sql_db_query!
+
+==================================================</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a database agent using the toolkit tools and a detailed system prompt that enforces safe, read-only SQL.
+    </p>
+  </div>
+
+  <pre><code># Create database agent
+system_prompt = f"""
+You are an agent designed to interact with a SQL database.
+Given an input question, create a syntactically correct {db.dialect} query to run,
+then look at the results of the query and return the answer.
+
+Unless the user specifies a specific number of examples they wish to obtain, 
+always limit your query to at most 10 results.
+
+You can order the results by a relevant column to return the most interesting 
+examples in the database. Never query for all the columns from a specific table, 
+only ask for the relevant columns given the question.
+
+You MUST double check your query before executing it. If you get an error while 
+executing a query, rewrite the query and try again.
+
+DO NOT make any DML statements (INSERT, UPDATE, DELETE, DROP etc.) to the database.
+
+To start you should ALWAYS look at the tables in the database to see what you 
+can query. Do NOT skip this step.
+
+Then you should query the schema of the most relevant tables.
+"""
+
+database_agent = create_agent(
+    model=model,
+    tools=tools,
+    system_prompt=system_prompt
+)
+
+print("Database agent created successfully!")</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Ask the database agent some questions (for example, list tables and show employees in a department) and inspect
+      the answers.
+    </p>
+  </div>
+
+  <pre><code># Test database agent with various queries
+queries = [
+    "What tables are available in the database?",
+    "Show me all employees in the Engineering department",
+    # "What is the average salary by department?",
+    # "Who are the top 3 highest paid employees?"
+]
+
+for query in queries:
+    print(f"Query: {query}")
+    print("-" * 40)
+    
+    result = database_agent.invoke({
+        "messages": [{"role": "user", "content": query}]
+    })
+    
+    print(result["messages"][-1].content)
+    print("\n" + "="*60 + "\n")</code></pre>
+
+  <p class="sample-output-title">Sample Output (for reference)</p>
+  <pre><code>Query: What tables are available in the database?
+----------------------------------------
+The available tables in the database are:
+
+1. departments
+2. employees
+
+============================================================
+
+Query: Show me all employees in the Engineering department
+----------------------------------------
+Here are the employees in the Engineering department:
+
+1. **John Smith**
+   - Salary: $75,000.00
+   - Hire Date: January 15, 2022
+
+2. **Bob Johnson**
+   - Salary: $80,000.00
+   - Hire Date: July 22, 2020
+
+============================================================</code></pre>
+
+  <h2>5. Short-Term Memory and Checkpointers</h2>
+  <p>
+    So far our agents have been <strong>stateless</strong>: each call starts fresh. In real applications you almost always want
+    the agent to remember previous messages in a conversation thread. In LangChain 1.0 agents, this is handled by a
+    <strong>checkpointer</strong>, which stores and reloads the agent state between calls for each conversation thread.
+  </p>
+
+  <div class="note">
+    <strong>Short-term vs long-term memory</strong>
+    <ul>
+      <li><strong>Short-term memory</strong>: thread-level state (conversation history, tool results, interrupts) stored via a checkpointer.</li>
+      <li><strong>Long-term memory</strong>: user or application data stored in a separate vector store or database.</li>
+    </ul>
+    <p>
+      In this lab we focus on <strong>short-term memory</strong> using LangChain agents, based on
+      the official <a href="https://docs.langchain.com/oss/python/langchain/short-term-memory#usage" target="_blank" rel="noopener noreferrer">LangChain short-term memory docs</a>.
+    </p>
+  </div>
+
+  <h3>5.1 InMemorySaver – simple short-term memory</h3>
+  <p>
+    The simplest way to add short-term memory is to pass <code>checkpointer=InMemorySaver()</code> when you create your agent.
+    This keeps state in RAM for as long as your Python process is running, which is perfect for <strong>local notebooks, demos, and experiments</strong>.
+  </p>
+  <p>
+    LangChain’s <code>create_agent</code> manages short-term memory as part of the agent state. When you specify a
+    <code>thread_id</code> in the <code>configurable</code> section, all calls with the same <code>thread_id</code> share the same conversation history.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Turn one of your existing agents into a stateful agent that remembers your name across turns using <code>InMemorySaver</code>.
+      Copy the code below into a new cell and run it.
+    </p>
+  </div>
+
+  <pre><code>from langgraph.checkpoint.memory import InMemorySaver
+from langchain.agents import create_agent
+
+# Reuse the ChatOpenAI model and tools (calculator, get_time) defined earlier
+memory_agent = create_agent(
+    model=model,
+    tools=[calculator, get_time],
+    checkpointer=InMemorySaver(),  # Enable short-term memory
+)
+
+config = {"configurable": {"thread_id": "memory-demo-1"}}
+
+print("=== First turn (introduce yourself) ===")
+result = memory_agent.invoke(
+    {"messages": [{"role": "user", "content": "Hi! My name is Bob."}]},
+    config,
+)
+print(result["messages"][-1].content)
+
+print("\n=== Second turn (same thread) ===")
+result = memory_agent.invoke(
+    {"messages": [{"role": "user", "content": "What's my name?"}]},
+    config,
+)
+print(result["messages"][-1].content)</code></pre>
+
+  <p class="sample-output-title">What to notice</p>
+  <pre><code>- Both calls use the same thread_id ("memory-demo-1"), so they share short-term memory.
+- The agent can answer "Your name is Bob" in the second turn because the checkpointer replayed the first user message.</code></pre>
+
+  <h3>5.2 PostgresSaver – production-ready persistent memory</h3>
+  <p>
+    <code>InMemorySaver</code> is great for quick experiments, but its state disappears when the process restarts.
+    In production you should use a <strong>database-backed checkpointer</strong> such as <code>PostgresSaver</code> from
+    <code>langgraph.checkpoint.postgres</code>. This stores short-term memory in Postgres so it survives restarts and scales.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Review the example below and note that only the <strong>checkpointer</strong> changes – the agent API and
+      <code>thread_id</code> usage stay the same.
+    </p>
+  </div>
+
+  <pre><code># Install dependencies (run in your terminal, not in the notebook):
+# pip install langgraph-checkpoint-postgres
+
+from langgraph.checkpoint.postgres import PostgresSaver
+from langchain.agents import create_agent
+
+DB_URI = "postgresql://postgres:postgres@localhost:5442/postgres?sslmode=disable"
+
+with PostgresSaver.from_conn_string(DB_URI) as checkpointer:
+    checkpointer.setup()  # Run once to auto-create tables in Postgres
+
+    persistent_memory_agent = create_agent(
+        model=model,
+        tools=[calculator, get_time],
+        checkpointer=checkpointer,  # Use Postgres-backed short-term memory
+    )
+
+    config = {"configurable": {"thread_id": "user-123"}}
+    result = persistent_memory_agent.invoke(
+        {"messages": [{"role": "user", "content": "Hi! I'm Alice."}]},
+        config,
+    )
+    print(result["messages"][-1].content)</code></pre>
+
+  <div class="note">
+    <strong>Next steps</strong>
+    <p>
+      This Part 1 file stops at Section 5. Open <code>05using-agents-part2.html</code> to continue from Section 6
+      (Middleware, dynamic models, error handling, prompts, and guardrails).
+    </p>
+  </div>
+
+</main>
+</body>
+</html>
+
+

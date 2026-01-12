@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Memory Management for LangGraph Agents – Hands-on Guide</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p {
+      margin: 0.5rem 0 0.75rem;
+    }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul {
+      padding-left: 1.4rem;
+    }
+    li {
+      margin: 0.25rem 0;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Memory Management for LangGraph Agents – Hands-on Guide</h1>
+
+  <div class="note">
+    <strong>How to use this guide</strong>
+    <ol>
+      <li>Open your editor (VS Code / Cursor / Jupyter / any IDE) and a terminal.</li>
+      <li>Create or open the notebook file <code>08-memory-management.ipynb</code>.</li>
+      <li>Place this HTML guide side‑by‑side with your notebook.</li>
+      <li>Whenever you see a section titled <strong>Your Task</strong>, create a <strong>new cell</strong> in your notebook, paste or type the code, and run it.</li>
+      <li>Read the short explanation before each task so you understand <em>why</em> you are running that code, not just how.</li>
+    </ol>
+  </div>
+
+  <h2>1. Why Memory Management Matters</h2>
+  <p>
+    LangGraph and LangChain let you build conversational agents that remember previous messages.
+    Without any memory management, conversations can grow very long: context windows fill up, token costs increase,
+    and the model may start to perform worse on long histories.
+  </p>
+  <p>
+    In this lab you will build a customer‑service agent and then apply three memory patterns:
+    basic memory, trimming messages, and summarizing old messages.
+  </p>
+
+  <h2>2. Environment Setup and Imports</h2>
+  <p>
+    First, you will import the Python and LangChain / LangGraph packages needed for the rest of the notebook.
+    We also load environment variables (for example, API keys) with <code>python-dotenv</code>.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it to set up all imports
+      and load your environment variables.
+    </p>
+  </div>
+
+  <pre><code># Import required libraries
+import os
+from typing import Any, Dict
+import warnings
+warnings.filterwarnings('ignore')
+
+# LangChain imports
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_agent, AgentState
+from langchain.agents.middleware import before_model, after_model, SummarizationMiddleware
+from langchain.tools import tool, ToolRuntime
+from langchain.messages import RemoveMessage, HumanMessage, AIMessage
+from langchain_core.runnables import RunnableConfig
+
+# LangGraph imports
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph.message import REMOVE_ALL_MESSAGES
+from langgraph.runtime import Runtime
+from langgraph.types import Command
+from dotenv import load_dotenv
+load_dotenv()</code></pre>
+
+  <h2>3. Building a Customer Service Bot</h2>
+  <p>
+    To make the memory patterns concrete, you will work with a simple customer‑service bot.
+    It uses a mock database to look up customer details, check orders, and update addresses.
+  </p>
+
+  <h3>3.1 Define Mock Data and Tools</h3>
+  <p>
+    Here you define two in‑memory databases: one for customers and one for orders.
+    Then you wrap Python functions as LangChain tools using the <code>@tool</code> decorator.
+    These tools simulate realistic operations an agent might perform.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it to set up
+      the mock customer and order databases and the associated tools.
+    </p>
+  </div>
+
+  <pre><code># Mock database for demonstration
+CUSTOMER_DB = {
+    "john_doe": {
+        "name": "John Doe",
+        "email": "john@email.com",
+        "address": "123 Main St, City, State 12345",
+        "orders": ["#12345", "#12346"]
+    },
+    "jane_smith": {
+        "name": "Jane Smith",
+        "email": "jane@email.com",
+        "address": "456 Oak Ave, Town, State 67890",
+        "orders": ["#12347", "#12348"]
+    }
+}
+
+ORDER_DB = {
+    "#12345": {"status": "shipped", "tracking": "TRK123456", "customer": "john_doe"},
+    "#12346": {"status": "delivered", "tracking": "TRK123457", "customer": "john_doe"},
+    "#12347": {"status": "processing", "tracking": None, "customer": "jane_smith"},
+    "#12348": {"status": "shipped", "tracking": "TRK123458", "customer": "jane_smith"}
+}
+
+# Customer service tools
+@tool
+def lookup_customer_info(name: str) -> str:
+    """Look up customer information by name."""
+    customer_key = name.lower().replace(" ", "_")
+    if customer_key in CUSTOMER_DB:
+        customer = CUSTOMER_DB[customer_key]
+        return f"Customer: {customer['name']}\nEmail: {customer['email']}\nAddress: {customer['address']}\nOrders: {', '.join(customer['orders'])}"
+    return f"Customer '{name}' not found in our system."
+
+@tool
+def check_order_status(order_id: str) -> str:
+    """Check the status of an order by order ID."""
+    if order_id in ORDER_DB:
+        order = ORDER_DB[order_id]
+        result = f"Order {order_id}:\nStatus: {order['status']}"
+        if order['tracking']:
+            result += f"\nTracking: {order['tracking']}"
+        return result
+    return f"Order '{order_id}' not found in our system."
+
+@tool
+def update_customer_address(name: str, new_address: str) -> str:
+    """Update customer address."""
+    customer_key = name.lower().replace(" ", "_")
+    if customer_key in CUSTOMER_DB:
+        old_address = CUSTOMER_DB[customer_key]['address']
+        CUSTOMER_DB[customer_key]['address'] = new_address
+        return f"✅ Address updated for {name}\nOld: {old_address}\nNew: {new_address}"
+    return f"Customer '{name}' not found in our system."
+
+# Define tools list
+tools = [lookup_customer_info, check_order_status, update_customer_address]
+
+print("🛠️ Customer service tools created:")
+
+for tool in tools:
+    print(f"  • {tool.name}: {tool.description}")</code></pre>
+
+  <h2>4. Experiment 1 – Basic Memory with No Management</h2>
+  <p>
+    Now you will create a basic agent that remembers all previous messages, with no memory management at all.
+    This is a useful starting point to see how fast conversation history can grow.
+  </p>
+
+  <h3>4.1 Create a Basic Agent with Memory</h3>
+  <p>
+    The code below creates a <code>ChatOpenAI</code> model, an in‑memory checkpointer, and a simple customer‑service agent.
+    The agent is configured with a system prompt, your tools, and a thread id for the conversation.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it to build a basic
+      agent that stores all messages.
+    </p>
+  </div>
+
+  <pre><code># Create a basic agent with memory (no memory management)
+basic_model = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+checkpointer = InMemorySaver()
+
+basic_agent = create_agent(
+    model=basic_model,
+    tools=tools,
+    system_prompt="""You are a helpful customer service agent for an e-commerce platform. 
+    You can help customers with:
+    - Looking up their information
+    - Checking order status
+    - Updating their address
+    
+    Be friendly, professional, and always try to help solve the customer's issues.""",
+    checkpointer=checkpointer,
+)
+
+# Configuration for conversation thread
+config: RunnableConfig = {"configurable": {"thread_id": "customer_thread_1"}}
+
+print("Basic customer service agent created!")
+print("This agent will remember everything but has no memory management.")</code></pre>
+
+  <h3>4.2 Simulate a Long Conversation</h3>
+  <p>
+    Next you will simulate a realistic, multi‑turn customer conversation.
+    A helper function sends each user message to the agent, collects responses, and tracks how many messages are stored.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it to simulate
+      a full customer conversation and inspect memory growth.
+    </p>
+  </div>
+
+  <pre><code># Simulate a long customer service conversation
+def simulate_conversation(agent, config, messages_list, title="Conversation"):
+    """Helper function to simulate a conversation and show memory usage"""
+    print(f"\n🗣️ {title}")
+    print("=" * 60)
+    
+    for i, message in enumerate(messages_list):
+        print(f"\n👤 Customer: {message}")
+        
+        response = agent.invoke(
+            {"messages": [{"role": "user", "content": message}]},
+            config
+        )
+        
+        ai_response = response["messages"][-1].content
+        print(f"🤖 Agent: {ai_response}")
+        
+        # Show memory size after each exchange
+        total_messages = len(response["messages"])
+        print(f"📊 Memory: {total_messages} messages in conversation")
+        
+        # Show last few messages if conversation is getting long
+        if i == len(messages_list) - 1 and total_messages > 6:
+            print(f"\n📜 Full conversation history:")
+            for msg in response["messages"]:
+                role = "🤖" if msg.type == "ai" else "👤" if msg.type == "human" else "🛠️"
+                content = msg.content[:100] + "..." if len(msg.content) > 100 else msg.content
+                print(f"  {role} {content}")
+
+# Customer service conversation
+customer_messages = [
+    "Hi, I'm John Doe. I need help with my order.",
+    "Can you look up my customer information?",
+    "I have an issue with order #12345. Can you check its status?",
+    "The delivery seems to be taking too long. When will it arrive?",
+    "I also need to update my shipping address for future orders.",
+    "My new address is 789 New Street, Updated City, State 11111",
+    "Can you confirm the address update went through?",
+    "Great! Do I have any other pending orders?"
+]
+
+simulate_conversation(basic_agent, config, customer_messages, "Basic Memory (No Management)")</code></pre>
+
+  <h3>4.3 Visualizing Memory Growth</h3>
+  <p>
+    When you run the previous cell, you can see that each new message adds more and more items to the conversation history.
+    The diagram below summarizes how the number of messages grows over time and why that becomes a problem.
+  </p>
+
+  <pre><code>Memory Growth Without Management:
+
+Message 1: [System][Human][AI] = 3 messages
+Message 2: [System][Human][AI][Human][AI] = 5 messages  
+Message 3: [System][Human][AI][Human][AI][Human][AI][Tool][Tool] = 9 messages
+Message 4: [System][Human][AI][Human][AI][Human][AI][Tool][Tool][Human][AI] = 11 messages
+...
+Message N: 20+ messages (context window approaching limit!)
+
+Problems:
+❌ Increasing token costs
+❌ Slower response times  
+❌ Context window limitations
+❌ Model performance degradation on long contexts</code></pre>
+
+  <h2>5. Solution 1 – Trim Messages Pattern</h2>
+  <p>
+    The simplest way to control memory is to <strong>trim</strong> old messages.
+    Instead of keeping the entire history, you keep the system prompt and only the last few recent messages.
+    This caps memory size and keeps performance predictable, but you may lose some earlier context.
+  </p>
+
+  <h3>5.1 Implement Trim Middleware</h3>
+  <p>
+    The trim middleware runs <em>before</em> the model is called.
+    It checks how many messages are in the state and, if there are too many, removes older ones while keeping
+    the system prompt and the last few recent exchanges.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it to define
+      the trim middleware and create a trim‑enabled customer‑service agent.
+    </p>
+  </div>
+
+  <pre><code># Create trim messages middleware
+@before_model
+def trim_messages_middleware(state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
+    """Keep only the last few messages to fit context window."""
+    messages = state["messages"]
+    max_messages = 6  # Keep only last 6 messages
+    
+    print(f"\n🔍 TRIM CHECK: Current conversation has {len(messages)} messages")
+    
+    if len(messages) <= max_messages:
+        print(f"✅ No trimming needed (≤{max_messages} messages)")
+        return None  # No changes needed
+    
+    # Always keep the first message (system prompt) and last few messages
+    system_msg = messages[0] if messages[0].type == "system" else None
+    recent_messages = messages[-(max_messages-1):] if system_msg else messages[-max_messages:]
+    
+    new_messages = []
+    if system_msg:
+        new_messages = [system_msg] + recent_messages
+    else:
+        new_messages = recent_messages
+    
+    print(f"✂️ TRIMMING: Removing {len(messages) - len(new_messages)} old messages")
+    print(f"📝 Keeping: {len(new_messages)} messages (system + last {len(new_messages)-1 if system_msg else len(new_messages)})")
+    
+    return {
+        "messages": [
+            RemoveMessage(id=REMOVE_ALL_MESSAGES),
+            *new_messages
+        ]
+    }
+
+# Create agent with trim middleware
+trim_agent = create_agent(
+    model=basic_model,
+    tools=tools,
+    system_prompt="""You are a helpful customer service agent for an e-commerce platform. 
+    You can help customers with:
+    - Looking up their information
+    - Checking order status
+    - Updating their address
+    
+    Be friendly, professional, and always try to help solve the customer's issues.""",
+    middleware=[trim_messages_middleware],
+    checkpointer=InMemorySaver(),
+)
+
+print("✂️ Trim-enabled customer service agent created!")
+print("📏 This agent will keep only the last 6 messages + system prompt.")</code></pre>
+
+  <h3>5.2 Test the Trim Pattern</h3>
+  <p>
+    You can now reuse the same simulated conversation as before, but with the trim‑enabled agent.
+    Watch the console output to see when trimming kicks in and how many messages are kept.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it
+      to compare memory behavior with the trim pattern enabled.
+    </p>
+  </div>
+
+  <pre><code># Test trim pattern with same conversation
+config_trim: RunnableConfig = {"configurable": {"thread_id": "customer_thread_trim"}}
+
+simulate_conversation(trim_agent, config_trim, customer_messages, "Memory with TRIM Pattern")</code></pre>
+
+  <h3>5.3 Visualizing the Trim Pattern</h3>
+  <p>
+    The diagram below shows how trimming keeps the system prompt and the most recent messages while dropping older ones.
+    This keeps memory size fixed, but older details are lost once they scroll out of the window.
+  </p>
+
+  <pre><code>Trim Pattern in Action:
+
+Before Trim (8 messages):                After Trim (6 messages):
+┌─────────────────────────┐               ┌─────────────────────────┐
+│ [System] You are...     │ ──────────────→│ [System] You are...     │
+│ [Human] Hi, I'm John    │ ❌ REMOVED      │                         │
+│ [AI] Hello John!        │ ❌ REMOVED      │                         │
+│ [Human] Look up info    │ ❌ REMOVED      │                         │
+│ [AI] Customer: John...  │ ──────────────→│ [AI] Customer: John...  │
+│ [Human] Check order     │ ──────────────→│ [Human] Check order     │
+│ [AI] Order #12345...    │ ──────────────→│ [AI] Order #12345...    │
+│ [Human] Update address  │ ──────────────→│ [Human] Update address  │
+│ [AI] Address updated    │ ──────────────→│ [AI] Address updated    │
+└─────────────────────────┘               └─────────────────────────┘
+
+Benefits:
+✅ Fixed memory size
+✅ Consistent performance
+✅ Lower token costs
+
+Drawbacks:
+❌ Loses context from early conversation
+❌ May forget important customer details</code></pre>
+
+  <h2>6. Solution 3 – Summarize Messages Pattern</h2>
+  <p>
+    A more advanced pattern is to <strong>summarize</strong> old messages instead of simply dropping them.
+    When the conversation gets long, the agent compresses earlier history into a short natural‑language summary
+    and keeps only that summary plus the most recent messages.
+  </p>
+
+  <h3>6.1 Create a Summarization-Enabled Agent</h3>
+  <p>
+    The <code>SummarizationMiddleware</code> monitors token usage and, once a threshold is reached,
+    calls a cheaper model to summarize the conversation so far.
+    The main agent then reads this summary as part of its context, preserving important information
+    without keeping every raw message.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it
+      to build a summarization‑enabled customer‑service agent.
+    </p>
+  </div>
+
+  <pre><code># Create agent with summarization middleware
+summarize_agent = create_agent(
+    model=ChatOpenAI(model="gpt-4.1-mini", temperature=0),  # Use better model for main agent
+    tools=tools,
+    system_prompt="""You are a helpful customer service agent for an e-commerce platform. 
+    You can help customers with:
+    - Looking up their information
+    - Checking order status
+    - Updating their address
+    
+    Be friendly, professional, and always try to help solve the customer's issues.
+    
+    IMPORTANT: If you see a conversation summary at the start, use that context 
+    to understand the customer's history and provide personalized service.""",
+    middleware=[
+        SummarizationMiddleware(
+            model= "gpt-4.1-mini",  # Cheaper model for summarization
+            max_tokens_before_summary=1000,  # Trigger summarization at 1000 tokens
+            messages_to_keep=8,  # Keep last 8 messages after summary
+            summary_prompt="""Summarize the conversation history for a customer service context. Include:
+            - Customer name and key information
+            - Issues discussed and resolutions provided
+            - Any important status updates or changes made
+            - Current context that would be relevant for continuing the conversation
+            
+            Keep the summary concise but comprehensive."""
+        )
+    ],
+    checkpointer=InMemorySaver(),
+)
+
+print("📝 Summarization-enabled customer service agent created!")
+print("🧠 This agent will summarize old messages when approaching token limits.")
+print("⚙️ Settings: Max 1000 tokens before summary, keep last 8 messages")</code></pre>
+
+  <h3>6.2 Trigger Summarization with an Extended Conversation</h3>
+  <p>
+    To see summarization in action, you will run a longer conversation with many related questions.
+    As the conversation grows, the middleware will compress earlier exchanges into a summary, which the agent then uses
+    as high‑level context for future turns.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Create a <strong>new cell</strong> in your notebook, paste or type the code below, and run it
+      to simulate an extended conversation and observe when summarization occurs.
+    </p>
+  </div>
+
+  <pre><code># Test summarization pattern with an extended conversation
+config_summarize: RunnableConfig = {"configurable": {"thread_id": "customer_thread_summarize"}}
+
+# Extended conversation to trigger summarization
+extended_messages = [
+    "Hi, I'm John Doe. I'm a premium customer and need help with multiple issues.",
+    "First, can you look up all my customer information and order history?",
+    "I have an issue with order #12345. Can you check its status and tracking?",
+    "The delivery is taking too long. I ordered this last week and it's still not delivered.",
+    "This is affecting my business operations. Can you expedite the delivery?",
+    "I also need to update my shipping address for all future orders.",
+    "My new address is 789 Business Plaza, Corporate City, State 11111",
+    "Please confirm the address update went through successfully.",
+    "Do I have any other pending orders that might be affected by this address change?",
+    "Also, I want to upgrade to express shipping for all my future orders.",
+    "What are the express shipping options and costs?",
+    "And can you tell me about your premium customer benefits?",
+    "I'm considering placing a large bulk order next month. Who should I contact?"
+]
+
+simulate_conversation(summarize_agent, config_summarize, extended_messages, "Memory with SUMMARIZATION Pattern")</code></pre>
+
+  <h3>6.3 Visualizing the Summarization Pattern</h3>
+  <p>
+    Unlike trimming, summarization keeps important information from the earlier conversation in compressed form.
+    The high‑level summary plus recent turns give the model enough context to respond intelligently without
+    exceeding context limits.
+  </p>
+
+  <pre><code>Summarization Pattern in Action:
+
+Before Summarization (12 messages):       After Summarization (9 messages):
+┌─────────────────────────┐               ┌─────────────────────────┐
+│ [System] You are...     │ ──────────────→│ [System] You are...     │
+│ [Human] Hi, I'm John    │ ┐              │                         │
+│ [AI] Hello John!        │ │              │                         │
+│ [Human] Look up info    │ │ SUMMARIZED   │ [AI] 📝 SUMMARY:        │
+│ [AI] Customer: John...  │ │    INTO      │ Customer John Doe is a  │
+│ [Human] Check order     │ │              │ premium member who had  │
+│ [AI] Order #12345...    │ ┘              │ issues with order       │
+│ [Human] Address update  │ ──────────────→│ #12345 delivery delay   │
+│ [AI] Address updated    │ ──────────────→│ and updated address to  │
+│ [Human] Other orders?   │ ──────────────→│ 789 Business Plaza...   │
+│ [AI] Order details...   │ ──────────────→│                         │
+│ [Human] Express ship?   │ ──────────────→│ [Human] Address update  │
+└─────────────────────────┘               │ [AI] Address updated    │
+                                          │ [Human] Other orders?   │
+                                          │ [AI] Order details...   │
+                                          │ [Human] Express ship?   │
+                                          └─────────────────────────┘
+
+Benefits:
+✅ Preserves important context
+✅ Manages memory efficiently
+✅ No information loss
+✅ Intelligent compression
+
+Considerations:
+⚠️ Requires additional API calls
+⚠️ Summarization quality depends on model</code></pre>
+
+  <h2>7. Wrap-Up</h2>
+  <p>
+    In this lab you:
+  </p>
+  <ul>
+    <li>Built a customer‑service agent with tools for looking up customers, checking orders, and updating addresses.</li>
+    <li>Observed how unbounded memory causes conversations to grow and consume tokens.</li>
+    <li>Implemented a <strong>trim</strong> pattern to cap memory by keeping only the most recent messages.</li>
+    <li>Implemented a <strong>summarization</strong> pattern to compress older history into a compact summary.</li>
+  </ul>
+  <p>
+    These patterns are essential when building production‑grade LangGraph agents that must handle long‑running
+    conversations reliably and cost‑effectively.
+  </p>
+
+</main>
+</body>
+</html>
+
+
