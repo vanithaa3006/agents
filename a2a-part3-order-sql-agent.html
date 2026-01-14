@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>A2A Protocol – Order Ops Agent with SQL & Streaming</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p { margin: 0.5rem 0 0.75rem; }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+      position: relative;
+    }
+    pre code { background: none; padding: 0; color: inherit; }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: #0ea5e9;
+      color: #0b1120;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      transition: background 0.2s ease;
+    }
+    .copy-btn:hover { background: #38bdf8; }
+    .copy-btn:active { background: #0284c7; }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul { padding-left: 1.4rem; }
+    li { margin: 0.25rem 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>A2A Part 3 – Order Ops Agent (SQL + Streaming)</h1>
+
+  <div class="note">
+    <strong>How to use this lab</strong>
+    <ol>
+      <li>Work in plain Python files: <code>app.py</code> (server) and <code>client.py</code> (client) inside <code>16-a2a/</code>.</li>
+      <li>Reuse the Part 2 skeleton, but switch to the order-management use case with SQL + streaming tool updates.</li>
+      <li>Run the server in one terminal, the client in another. Watch streamed updates and final artifacts.</li>
+    </ol>
+  </div>
+
+  <h2>0. Setup</h2>
+  <ol>
+    <li>Create/activate your venv.</li>
+    <li>Install deps: <code>pip install a2a httpx uvicorn langchain-community sqlalchemy python-dotenv</code></li>
+    <li>Seed a tiny SQLite DB (one-time).</li>
+  </ol>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create <code>order_seed.py</code> and run it once to initialize <code>order_mgmt.db</code>.</p>
+  </div>
+
+  <pre><code># order_seed.py
+import sqlite3
+from pathlib import Path
+DB_PATH = Path("order_mgmt.db")
+
+schema = """
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  tier TEXT
+);
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER PRIMARY KEY,
+  customer_id INTEGER,
+  status TEXT,
+  order_total REAL,
+  created_at TEXT,
+  FOREIGN KEY (customer_id) REFERENCES customers(id)
+);
+CREATE TABLE IF NOT EXISTS order_items (
+  id INTEGER PRIMARY KEY,
+  order_id INTEGER,
+  sku TEXT,
+  description TEXT,
+  quantity INTEGER,
+  unit_price REAL,
+  FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+CREATE TABLE IF NOT EXISTS inventory (
+  sku TEXT PRIMARY KEY,
+  description TEXT,
+  quantity_available INTEGER
+);
+"""
+
+seed = [
+  "DELETE FROM customers;",
+  "DELETE FROM orders;",
+  "DELETE FROM order_items;",
+  "DELETE FROM inventory;",
+  "INSERT INTO customers (id, name, tier) VALUES (1, 'Acme Retail', 'gold'), (2, 'Northwind', 'silver');",
+  "INSERT INTO orders (id, customer_id, status, order_total, created_at) VALUES (2001, 1, 'pending_fulfillment', 349.50, '2024-12-20'), (2002, 2, 'awaiting_payment', 129.99, '2024-12-21');",
+  "INSERT INTO order_items (order_id, sku, description, quantity, unit_price) VALUES (2001, 'SKU-001', 'Bluetooth Speaker', 1, 129.00), (2001, 'SKU-002', 'Noise-cancel Headset', 2, 110.25), (2002, 'SKU-003', 'Smartwatch', 1, 129.99);",
+  "INSERT INTO inventory (sku, description, quantity_available) VALUES ('SKU-001', 'Bluetooth Speaker', 5), ('SKU-002', 'Noise-cancel Headset', 3), ('SKU-003', 'Smartwatch', 1);"
+]
+
+with sqlite3.connect(DB_PATH) as conn:
+    conn.executescript(schema)
+    for stmt in seed:
+        conn.execute(stmt)
+    conn.commit()
+
+print(f"DB ready at {DB_PATH.resolve()}")</code></pre>
+
+  <h2>1. Agent Card (Order Ops)</h2>
+  <p>Three skills: <strong>order_status</strong>, <strong>check_inventory</strong>, <strong>reserve_inventory</strong>. Streaming enabled.</p>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>app.py</code>, add the Agent Card and skills definition below.</p>
+  </div>
+
+  <pre><code># app.py (imports at top)
+from a2a.types import AgentSkill, AgentCard, AgentCapabilities
+
+order_status = AgentSkill(
+    id="order_status",
+    name="Order Status",
+    description="Summarize order, items, totals, and status for a given order id.",
+    tags=["orders","status"],
+    examples=["status for order 2001", "show items for order 2002"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"]
+)
+check_inventory = AgentSkill(
+    id="check_inventory",
+    name="Check Inventory",
+    description="Check inventory levels for SKUs in an order and report gaps.",
+    tags=["inventory","sku"],
+    examples=["inventory for order 2001"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"]
+)
+reserve_inventory_skill = AgentSkill(
+    id="reserve_inventory",
+    name="Reserve Inventory",
+    description="Reserve requested quantities for an order; streams steps.",
+    tags=["inventory","reserve"],
+    examples=["reserve stock for order 2001"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"]
+)
+
+order_skills = [order_status, check_inventory, reserve_inventory_skill]
+
+order_agent_card = AgentCard(
+    name="Order Ops Agent",
+    description="Answers order status questions and reserves inventory with streamed updates.",
+    url="http://localhost:8100/",
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain","application/json"],
+    capabilities=AgentCapabilities(streaming=True, push_notifications=False),
+    skills=order_skills,
+    supports_authenticated_extended_card=False,
+)
+
+print("Order Ops Agent Card ready", [s.id for s in order_skills])</code></pre>
+
+  <h2>2. Agent Executor (LangChain SQL Agent + streaming)</h2>
+  <p>We now add a tiny classifier to pick the skill, and then build a LangChain SQL agent with a per-skill system prompt. Whatever the agent streams, we forward to the client via <code>TaskUpdater</code>.</p>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>app.py</code>, add the executor code below (skill router + single streaming loop).</p>
+  </div>
+
+  <pre><code>import asyncio, json, re
+from typing import Optional
+
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.server.tasks import TaskUpdater
+from a2a.types import Part, TextPart, TaskState
+from a2a.utils import new_agent_text_message, new_task
+
+from langchain_openai import ChatOpenAI
+from langchain_community.utilities import SQLDatabase
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage
+
+ORDER_RE = re.compile(r"(order\s*(\d+))", re.IGNORECASE)
+DB_URI = "sqlite:///order_mgmt.db"
+
+SKILL_ROUTER_PROMPT = """
+You are a classifier. Decide which skill best fits the user query.
+Return ONLY one of: order_status | check_inventory | reserve_inventory.
+User query: {query}
+"""
+
+SKILL_PROMPTS = {
+    "order_status": (
+      "You handle order status. First, fetch table schemas before writing any SQL."
+      " Then, given an order id, use SQL tools to list header + items + totals + status."
+      " Never modify data. Keep the answer concise and include totals and status."
+    ),
+    "check_inventory": (
+      "You check inventory for each SKU in the order. First, fetch table schemas before writing any SQL."
+      " Use SQL to join order_items and inventory. Report ordered qty vs available and highlight shortages."
+      " Do NOT update inventory."
+    ),
+    "reserve_inventory": (
+      "You reserve inventory for each SKU in the order. First, fetch table schemas before writing any SQL."
+      " Then check availability; if enough, update quantities accordingly."
+      " If not enough, report shortages and do not reserve that SKU."
+    ),
+}
+
+def _extract_order(text: str) -> Optional[int]:
+    m = ORDER_RE.search(text)
+    return int(m.group(2)) if m else None
+
+class OrderExecutor(AgentExecutor):
+    def __init__(self):
+        self._active = {}
+        self._db = SQLDatabase.from_uri(DB_URI)
+        self._llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True)
+        self._sql_tools = SQLDatabaseToolkit(db=self._db, llm=self._llm).get_tools()
+
+    def _route_skill(self, text: str) -> str:
+        result = self._llm.invoke(SKILL_ROUTER_PROMPT.format(query=text))
+        skill = (result.content or "").strip().lower()
+        return skill if skill in SKILL_PROMPTS else "order_status"
+
+    def _make_agent(self, skill: str):
+        return create_agent(
+            model=self._llm,
+            tools=self._sql_tools,
+            system_prompt=SKILL_PROMPTS[skill],
+        )
+
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        user_text = context.get_user_input()
+        task = context.current_task or new_task(context.message)
+        if context.current_task is None:
+            await event_queue.enqueue_event(task)
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        self._active[task.id] = {"cancelled": False}
+
+        try:
+            order_id = _extract_order(user_text)
+            if not order_id:
+                await updater.update_status(
+                    TaskState.failed,
+                    new_agent_text_message("Please specify an order id, e.g., order 2001.", task.context_id, task.id),
+                    final=True,
+                )
+                return
+
+            skill = self._route_skill(user_text)
+            agent = self._make_agent(skill)
+            messages = [HumanMessage(content=f"{user_text}\nOrder id: {order_id}")]
+
+            # Single streaming loop: stream updates and capture final text
+            final_text = ""
+            async for chunk in agent.astream(
+                {"messages": messages},
+                stream_mode="updates",
+            ):
+                if self._cancelled(task.id):
+                    return
+                for node, payload in chunk.items():
+                    msg = payload.get("messages", [])[-1] if payload.get("messages") else None
+                    if msg and getattr(msg, "tool_calls", None):
+                        details = json.dumps(msg.tool_calls, default=str)
+                        await updater.update_status(
+                            TaskState.working,
+                            new_agent_text_message(f"{node} tool calls: {details}", task.context_id, task.id),
+                        )
+                    if msg and getattr(msg, "content", None):
+                        text = msg.content if isinstance(msg.content, str) else str(msg.content)
+                        await updater.update_status(
+                            TaskState.working,
+                            new_agent_text_message(f"{node}: {text}", task.context_id, task.id),
+                        )
+                        # capture potential final text from model node
+                        if node == "model":
+                            final_text += text
+
+            await updater.add_artifact(
+                [Part(root=TextPart(text=final_text))],
+                name="order_answer.txt",
+            )
+            await updater.complete()
+        finally:
+            self._active.pop(task.id, None)
+
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        task = context.current_task
+        if not task:
+            return
+        self._active[task.id] = {"cancelled": True}
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        await updater.update_status(
+            TaskState.cancelled,
+            new_agent_text_message("Task cancelled.", task.context_id, task.id),
+            final=True,
+        )
+
+    def _cancelled(self, task_id: str) -> bool:
+        return self._active.get(task_id, {}).get("cancelled", False)
+
+print("OrderExecutor ready (LangChain SQL agent with classifier)")</code></pre>
+
+  <h2>3. Server wiring</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>app.py</code>, wire the server and run it.</p>
+  </div>
+
+  <pre><code>from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryTaskStore
+from a2a.server.apps import A2AStarletteApplication
+import uvicorn
+
+request_handler = DefaultRequestHandler(
+    agent_executor=OrderExecutor(),
+    task_store=InMemoryTaskStore(),
+)
+server_app_builder = A2AStarletteApplication(
+    agent_card=order_agent_card,
+    http_handler=request_handler,
+)
+
+if __name__ == "__main__":
+    uvicorn.run(server_app_builder.build(), host="0.0.0.0", port=8100)
+</code></pre>
+  <p><strong>Run:</strong> <code>python order_seed.py</code> once, then <code>python app.py</code>. Check <code>http://localhost:8100/.well-known/agent-card.json</code>.</p>
+
+  <h2>4. Client helpers</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create <code>client.py</code> with helper functions for streaming and one-shot calls.</p>
+  </div>
+
+  <pre><code># client.py
+import asyncio, uuid, json, pprint, httpx
+from a2a.client.client import ClientConfig
+from a2a.client.client_factory import ClientFactory
+from a2a.types import Message, TextPart, Role, TransportProtocol, TaskState
+
+BASE_URL = "http://localhost:8100"
+
+async def _make_client(streaming: bool):
+    timeout = httpx.Timeout(connect=30.0, read=600.0, write=30.0, pool=30.0)
+    httpx_client = httpx.AsyncClient(timeout=timeout)
+    cfg = ClientConfig(
+        httpx_client=httpx_client,
+        streaming=streaming,
+        supported_transports=[TransportProtocol.jsonrpc],
+    )
+    client = await ClientFactory.connect(agent=BASE_URL, client_config=cfg)
+    return client, httpx_client
+
+async def send_updates(prompt: str):
+    client, httpx_client = await _make_client(streaming=True)
+    try:
+        msg = Message(message_id=uuid.uuid4().hex, role=Role.user, parts=[TextPart(text=prompt)])
+        async for event in client.send_message(msg):
+            if isinstance(event, tuple):
+                task, update = event
+                print("TASK:", json.dumps(task.model_dump(mode="json", exclude_none=True), indent=2))
+                if update:
+                    print("UPDATE:", json.dumps(update.model_dump(mode="json", exclude_none=True), indent=2))
+            else:
+                pprint.pp(event.model_dump(mode="json", exclude_none=True))
+    finally:
+        await client.close()
+        await httpx_client.aclose()
+
+async def send_once(prompt: str):
+    client, httpx_client = await _make_client(streaming=False)
+    try:
+        msg = Message(message_id=uuid.uuid4().hex, role=Role.user, parts=[TextPart(text=prompt)])
+        async for event in client.send_message(msg):
+            return event.model_dump(mode="json", exclude_none=True)
+    finally:
+        await client.close()
+        await httpx_client.aclose()
+
+print("Client helpers ready")</code></pre>
+
+  <h2>5. Try it (write a runner script)</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create <code>run_scenarios.py</code> beside <code>client.py</code> with the code below, then run it and observe outputs for different scenarios.</p>
+  </div>
+  <pre><code># run_scenarios.py
+import asyncio
+from client import send_updates, send_once
+
+async def main():
+    print("\n--- Scenario 1: reserve stock (streams tool calls) ---")
+    await send_updates("reserve stock for order 2001")
+
+    print("\n--- Scenario 2: inventory view (streams) ---")
+    await send_updates("inventory for order 2001")
+
+    print("\n--- Scenario 3: status (one-shot) ---")
+    result = await send_once("status for order 2002")
+    print(result)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+</code></pre>
+  <p><strong>Run:</strong> <code>python run_scenarios.py</code></p>
+  <ul>
+    <li>Scenario 1: Expect streaming updates showing tool calls and a final artifact with reservations/shortages.</li>
+    <li>Scenario 2: Expect streaming updates showing reads and an inventory JSON artifact.</li>
+    <li>Scenario 3: Expect a one-shot status artifact (no streaming).</li>
+  </ul>
+
+  <h2>6. Expected behavior</h2>
+  <ul>
+    <li>Agent card served at <code>/.well-known/agent-card.json</code>.</li>
+    <li><code>reserve</code> streams step-by-step (per SKU) and emits <code>reservation_result.json</code>.</li>
+    <li><code>inventory</code> emits <code>inventory_view.json</code>.</li>
+    <li>Status emits <code>order_status.json</code>.</li>
+    <li>Cancellation toggles to <code>cancelled</code> if invoked.</li>
+  </ul>
+
+  <p style="margin-top: 2rem; text-align: center; color: #475569;">You now have an Order Ops A2A server/client that streams SQL-driven updates for a realistic order management flow.</p>
+</main>
+<script>
+  (function attachCopyButtons() {
+    const pres = document.querySelectorAll('pre');
+    pres.forEach(pre => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', async () => {
+        const codeEl = pre.querySelector('code');
+        const code = codeEl ? codeEl.innerText : pre.innerText;
+        try {
+          await navigator.clipboard.writeText(code);
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 1200);
+        } catch (e) {
+          btn.textContent = 'Error';
+          setTimeout(() => btn.textContent = 'Copy', 1200);
+        }
+      });
+      pre.appendChild(btn);
+    });
+  })();
+</script>
+</body>
+</html>

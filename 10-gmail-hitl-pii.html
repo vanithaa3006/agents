@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Building a Gmail Email Sender Agent – Hands-on Guide</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p {
+      margin: 0.5rem 0 0.75rem;
+    }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul {
+      padding-left: 1.4rem;
+    }
+    li {
+      margin: 0.25rem 0;
+    }
+    strong {
+      font-weight: 600;
+    }
+    a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+<main>
+
+  <h1>Building a Gmail Email Sender Agent</h1>
+  <p>
+    This tutorial demonstrates how to create an AI agent using LangChain 1.x that can:
+  </p>
+  <ul>
+    <li>Take a user query as input</li>
+    <li>Process the query using an LLM</li>
+    <li>Send the response via email using Gmail API</li>
+  </ul>
+
+  <h2>Step 1: Install Required Packages</h2>
+
+  <p>
+    First, let's install all the necessary packages. Run the following command in your terminal or use the cell below:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      In your terminal (not inside a notebook), run the following command in your project environment:
+    </p>
+  </div>
+
+  <pre><code>pip install langchain langchain-openai google-auth-oauthlib google-auth-httplib2 google-api-python-client python-dotenv</code></pre>
+
+  <h2>Step 2: Google Cloud Setup and Credentials</h2>
+
+  <h3>2.1 Create a Google Cloud Project</h3>
+
+  <ol>
+    <li><strong>Go to Google Cloud Console</strong>: Visit <a href="https://console.cloud.google.com" target="_blank">https://console.cloud.google.com</a></li>
+    <li><strong>Create a new project</strong>:
+      <ul>
+        <li>Click on the project dropdown at the top</li>
+        <li>Click "New Project"</li>
+        <li>Give it a name like "gmail-langchain-agent"</li>
+        <li>Click "Create"</li>
+        <li>Once project is created, select that project</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>2.2 Enable Gmail API</h3>
+
+  <ol>
+    <li><strong>Navigate to APIs & Services</strong>:
+      <ul>
+        <li>In the Google Cloud Console, go to "APIs & Services" > "Library" from left menu</li>
+        <li>Search for "Gmail API"</li>
+        <li>Click on "Gmail API" and then click "Enable"</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>2.3 Set up OAuth Consent Screen</h3>
+
+  <ol>
+    <li><strong>Configure OAuth consent screen</strong>:
+      <ul>
+        <li>Go to "APIs & Services" > "OAuth consent screen"</li>
+        <li>Click on Get Started</li>
+        <li>Fill in the required information:
+          <ul>
+            <li>App name: "Gmail Agent"</li>
+            <li>User support email: Your email</li>
+            <li>Click Next</li>
+          </ul>
+        </li>
+        <li>Select "External" as the User Type</li>
+        <li>Click "Next"</li>
+        <li>Give Your email in contact information</li>
+        <li>Click Next and Click on Create</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h3>2.4 Create OAuth 2.0 Credentials</h3>
+
+  <ol>
+    <li><strong>Create credentials</strong>:
+      <ul>
+        <li>Go to "APIs & Services" > "Credentials"</li>
+        <li>Click "Create Credentials" > "OAuth client ID"</li>
+        <li>Choose "Desktop application" as the application type</li>
+        <li>Give it a name like "Gmail Agent Desktop"</li>
+        <li>Click "Create"</li>
+      </ul>
+    </li>
+    <li><strong>Download credentials</strong>:
+      <ul>
+        <li>Click the download button next to your newly created OAuth client</li>
+        <li>Save the file as <code>credentials.json</code> in your project directory</li>
+      </ul>
+    </li>
+    <li><strong>Add Your email id as Test User</strong>
+      <ul>
+        <li>Go to "APIs & Services" > "OAuth Consent Screen"</li>
+        <li>Click on "Audience"</li>
+        <li>Click on "+ Add Users" and add your email id as test user</li>
+      </ul>
+    </li>
+  </ol>
+
+  <h2>Step 3: Set up Environment Variables</h2>
+
+  <p>
+    Create a <code>.env</code> file in your project directory with your OpenAI API key:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      In your project folder, create a file named <code>.env</code> and add the following line (replace with your actual API key):
+    </p>
+  </div>
+
+  <pre><code>OPENAI_API_KEY=your_api_key_here</code></pre>
+
+  <p>
+    Save the <code>.env</code> file. Do <strong>not</strong> commit this file to public version control.
+  </p>
+
+  <h2>Step 4: Import Required Libraries</h2>
+
+  <p>
+    Now let's start building our Gmail agent. First, import all necessary libraries:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      In your editor, copy or type the following code and save it to a Python file (e.g., <code>gmail_agent.py</code>):
+    </p>
+  </div>
+
+  <pre><code>import os
+from typing import List
+
+# LangChain 1.x imports - using the modern approach
+from langchain.agents import create_agent
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+
+# Import existing LangChain community Gmail tools
+from langchain_community.tools.gmail import GmailSendMessage
+
+# Google API imports
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+import pickle
+from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langgraph.checkpoint.memory import InMemorySaver
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()</code></pre>
+
+  <h2>Step 5: Create Gmail Authentication Function</h2>
+
+  <p>
+    This function handles OAuth2 authentication with Gmail. It will:
+  </p>
+  <ol>
+    <li>Check for existing credentials in <code>token.pickle</code></li>
+    <li>Refresh credentials if they're expired</li>
+    <li>Prompt for new authentication if needed</li>
+    <li>Save credentials for future use</li>
+  </ol>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following function to your Python file:
+    </p>
+  </div>
+
+  <pre><code>def get_gmail_service():
+    """Creates Gmail service with proper authentication for sending emails"""
+    # We need the send scope to send emails
+    SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+    creds = None
+
+    # The file token.pickle stores the user's access and refresh tokens
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+
+    # If there are no (valid) credentials available, let the user log in
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            # Refresh the credentials
+            creds.refresh(Request())
+        else:
+            # Create new credentials
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+
+        # Save the credentials for the next run
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+
+    # Build and return the Gmail service
+    return build('gmail', 'v1', credentials=creds)
+
+print("✅ Gmail authentication function created!")
+print("📧 This will authenticate for email sending permissions")</code></pre>
+
+  <h2>Step 6: Initialize Gmail Service</h2>
+
+  <p>
+    Let's create the Gmail service. <strong>Note</strong>: When you run this for the first time, it will open a browser window asking you to authenticate with Google.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following code to initialize the Gmail service:
+    </p>
+  </div>
+
+  <pre><code># Initialize the Gmail service
+try:
+    service = get_gmail_service()
+    print("Gmail service initialized successfully!")
+    print(" Ready to send emails via Gmail API")
+except Exception as e:
+    print(f" Error initializing Gmail service: {e}")
+    print("Make sure you have credentials.json in your project directory")</code></pre>
+
+  <h2>Step 7: Create Gmail Tools using LangChain Community</h2>
+
+  <p>
+    Using the existing LangChain community Gmail tools - no need to create custom tools!
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following code to create Gmail tools:
+    </p>
+  </div>
+
+  <pre><code># Create the Gmail tools using existing LangChain community tools
+def create_gmail_tools(service) -> List:
+    
+    return [
+        GmailSendMessage(api_resource=service)  # Using existing LangChain community tool
+    ]
+
+# Initialize Gmail service and create tools
+try:
+    service = get_gmail_service()
+    gmail_tools = create_gmail_tools(service)
+    
+    print("✅ Gmail tools created successfully!")
+    print(f"🔧 Available tools: {[tool.name for tool in gmail_tools]}")
+    print("📧 Using LangChain community GmailSendMessage tool")
+except Exception as e:
+    print(f" Error creating Gmail tools: {e}")
+    gmail_tools = []</code></pre>
+
+  <h2>Step 8: Create System Prompt for the Agent</h2>
+
+  <p>
+    Simple system prompt that instructs the agent to send email responses:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following system prompt to your code:
+    </p>
+  </div>
+
+  <pre><code># Simple system prompt for the agent
+system_prompt = """You are an intelligent email assistant that processes queries and sends responses via email.
+
+Your workflow:
+1. Analyze the user's query carefully
+2. Generate a comprehensive, helpful response
+3. Send the response to the specified email address using the gmail_send_message tool
+4. Confirm the email was sent
+
+Guidelines for responses:
+- Be professional and informative
+- Provide detailed, accurate answers
+- Include relevant examples when helpful
+- Use a friendly but professional tone
+- Structure longer responses with clear sections
+- Format the email body clearly and professionally. Create paragraphs and use bullet points where appropriate. create it in markdown format
+- Use my name as Sivaprasad Valluru
+
+When sending emails:
+- Use descriptive subject lines that summarize the response
+- Format the email body clearly and professionally
+- Include a polite greeting and closing
+"""</code></pre>
+
+  <h2>Step 9: Initialize the Language Model</h2>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following code to initialize the language model:
+    </p>
+  </div>
+
+  <pre><code>llm = ChatOpenAI(model="gpt-4.1-mini")</code></pre>
+
+  <h2>Step 10: Create Agent with Human In The Loop Middleware</h2>
+
+  <p>
+    Using the modern <code>create_agent</code> function with Human In the Loop middleware to add human approval for email sending:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following code to create the agent with Human In the Loop middleware:
+    </p>
+  </div>
+
+  <pre><code># Create checkpointer (required for Human In the Loop)
+checkpointer = InMemorySaver()
+
+# Configure Human In the Loop middleware
+hitl_middleware = HumanInTheLoopMiddleware(
+    interrupt_on={
+        "send_gmail_message": {
+            "allowed_decisions": ["approve", "edit", "reject"],
+        }
+    }
+)
+
+# Create agent using the modern LangChain 1.x approach with Human In the Loop
+agent = create_agent(
+    model=llm,
+    tools=gmail_tools,
+    system_prompt=system_prompt,
+    checkpointer=checkpointer,  # Required for HITL
+    middleware=[hitl_middleware]  # Add Human In the Loop middleware
+)</code></pre>
+
+  <h3>Step 10.1: Understanding Human In The Loop Workflow</h3>
+
+  <p>
+    When the agent attempts to send an email, it will pause and wait for human approval. The workflow is:
+  </p>
+  <ol>
+    <li><strong>Agent prepares email</strong>: The agent processes the query and prepares an email response</li>
+    <li><strong>Interruption</strong>: Before sending, the agent pauses and shows the prepared email</li>
+    <li><strong>Human decision</strong>: You can choose to:
+      <ul>
+        <li><strong>Approve</strong>: Send the email as prepared</li>
+        <li><strong>Edit</strong>: Modify the email content before sending</li>
+        <li><strong>Reject</strong>: Cancel the email sending operation</li>
+      </ul>
+    </li>
+    <li><strong>Continuation</strong>: The agent continues based on your decision</li>
+  </ol>
+
+  <p>
+    This ensures human oversight for sensitive operations like sending emails.
+  </p>
+
+  <h2>Step 11: Create Helper Functions</h2>
+
+  <p>
+    Utility functions to make the agent easier to use:
+  </p>
+
+  <h3>Query-Response Email Function</h3>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following helper function to process queries and send email responses:
+    </p>
+  </div>
+
+  <pre><code>def process_query_and_email_response_with_hitl(query: str, recipient_email: str, thread_id: str = "demo-thread"):
+ 
+    try:
+        # Construct the instruction for the agent
+        instruction = f"""
+        Please process this query and send a comprehensive response via email:
+        
+        Query: "{query}"
+        
+        Send the response to: {recipient_email}
+        
+        Create an appropriate subject line and format the response professionally.
+        Use the gmail_send_message tool to send the email.
+        """
+        
+        # Create the config with thread_id for checkpointing
+        config = {"thread_id": thread_id}
+        
+        # Use the modern agent invoke method with config
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": instruction}]}, 
+            config=config
+        )
+        
+        return result
+        
+    except Exception as e:
+        return {"error": f"Failed to process query: {str(e)}"}</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following function to handle human approval decisions:
+    </p>
+  </div>
+
+  <pre><code>from langgraph.types import Command
+def handle_human_approval(thread_id: str = "demo-thread", decision: str = "approve", tool_call:dict = None):
+ 
+        config = {"thread_id": thread_id}
+
+  
+        
+        if decision == "approve":
+            approved_result = agent.invoke(
+                Command(resume={"decisions": [{"type": "approve"}]}),
+                config=config  # Same thread ID to resume
+            )
+            return approved_result
+        elif decision == "edit" :
+            # Continue with edited message
+            # Update the tool call with new parameters
+            approved_result = agent.invoke(
+                Command(resume={"decisions": [{"type": "edit",
+                                               "edited_action": tool_call
+                                                }
+                                            ]
+                                }
+                        ),
+                config=config  # Same thread ID to resume
+            )
+            return approved_result
+        elif decision == "reject":
+            approved_result = agent.invoke(
+                Command(resume={"decisions": [{"type": "reject"}]}),
+                config=config  # Same thread ID to resume
+            )
+            return approved_result
+        else:
+            return {"error": "Invalid decision or missing edited message"}</code></pre>
+
+  <h2>Step 12: Demonstrate Human In The Loop Workflow</h2>
+
+  <p>
+    Let's demonstrate how the Human In the Loop middleware works with our Gmail agent:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Add the following code to test the Human In the Loop workflow:
+    </p>
+  </div>
+
+  <pre><code># Demonstrate Human In The Loop workflow
+simple_query = "What are the benefits of using Python for data science?"
+test_email = "sivaprasad.valluru@gmail.com"  # Replace with your actual email
+thread_id = "demo-thread-2"
+
+result = process_query_and_email_response_with_hitl(simple_query, test_email, thread_id)
+result['messages']</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      After the agent pauses, extract the tool call to see what email it prepared:
+    </p>
+  </div>
+
+  <pre><code>tool_call=result['messages'][-1].tool_calls[0]
+tool_call</code></pre>
+
+  <h3>Step 12.1: Human Approval Examples</h3>
+
+  <p>
+    When the agent pauses for approval, you can handle it in different ways:
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Example 1: Approve the email as prepared. When the agent pauses, run this to approve:
+    </p>
+  </div>
+
+  <pre><code># Example 1: Approve the email as prepared
+print("Example 1: Approving the email")
+print("When the agent pauses, run this to approve:")
+print("result = handle_human_approval(thread_id='demo-thread-1', decision='approve')")
+print()
+
+result = handle_human_approval(thread_id='demo-thread-2' ,decision='approve')
+
+result</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Example 2: Edit the email content. First, create a new query and get the result, then edit it:
+    </p>
+  </div>
+
+  <pre><code>simple_query = "What are the benefits of using Python for data science?"
+test_email = "sivaprasad.valluru@gmail.com"  # Replace with your actual email
+thread_id = "demo-thread-3"
+
+result = process_query_and_email_response_with_hitl(simple_query, test_email, thread_id)
+result['messages']</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Now edit the email content before sending:
+    </p>
+  </div>
+
+  <pre><code># Example 2: Edit the email content
+print("Example 2: Editing the email content")
+print("When the agent pauses, run this to edit:")
+edited_content = """
+
+
+Dear Recipient,
+
+I wanted to share some insights about Python's advantages in data science:
+
+1. **Rich Ecosystem**: Libraries like pandas, numpy, matplotlib
+2. **Easy Learning Curve**: Readable syntax and extensive documentation  
+3. **Versatile Applications**: From analysis to machine learning
+4. **Strong Community**: Large user base and active support
+
+Best regards,
+Sivaprasad Valluru
+"""
+tool_call['args']['subject']="Python for Data Science - Key Benefits"
+tool_call['args']['message']=edited_content
+result = handle_human_approval(thread_id='demo-thread-3', decision='edit',tool_call=tool_call )
+result</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>
+      Example 3: Reject the email. When the agent pauses, run this to reject:
+    </p>
+  </div>
+
+  <pre><code># Example 3: Reject the email
+print("Example 3: Rejecting the email")
+print("When the agent pauses, run this to reject:")
+result = handle_human_approval(thread_id='demo-thread-3', decision='reject')
+
+print("💡 Pro tip: Each decision continues or stops the agent execution differently")
+print("🔄 The thread_id must match the one used in the initial request")</code></pre>
+
+  <div class="note">
+    <strong>Important Notes:</strong>
+    <ul>
+      <li>Each decision (approve, edit, reject) continues or stops the agent execution differently</li>
+      <li>The <code>thread_id</code> must match the one used in the initial request</li>
+      <li>When editing, make sure to update the <code>tool_call</code> dictionary with your changes before calling <code>handle_human_approval</code></li>
+    </ul>
+  </div>
+
+  <h2>Additional Resources</h2>
+
+  <p>
+    There are many interesting middlewares available at <a href="https://docs.langchain.com/oss/python/langchain/middleware/built-in" target="_blank">https://docs.langchain.com/oss/python/langchain/middleware/built-in</a>
+  </p>
+
+  <p>
+    Have a look at:
+  </p>
+  <ul>
+    <li>PII Detection Middleware</li>
+    <li>File Search</li>
+    <li>Shell tool</li>
+    <li>ContextEditingMiddleware</li>
+  </ul>
+
+</main>
+</body>
+</html>
+

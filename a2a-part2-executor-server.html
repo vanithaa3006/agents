@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>A2A Protocol – Agent Executor & Server (Part 2)</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p { margin: 0.5rem 0 0.75rem; }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code { background: none; padding: 0; color: inherit; }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul { padding-left: 1.4rem; }
+    li { margin: 0.25rem 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>A2A Part 2 – Agent Executor & Server</h1>
+
+  <div class="note">
+    <strong>How to use this lab</strong>
+    <ol>
+      <li>Work in plain Python files (no notebook): create <code>app.py</code> for the server and <code>client.py</code> for the client.</li>
+      <li>Follow sections in order; each <strong>Your Task</strong> means add code to the indicated file.</li>
+      <li>Run server-related code in a terminal for best results.</li>
+      <li>Keep Part 1 agent cards handy; this lab focuses on execution, streaming, and cancellation.</li>
+    </ol>
+  </div>
+
+  <h2>0. Quick Recap</h2>
+  <ul>
+    <li>Agent Skills: what the agent can do.</li>
+    <li>Agent Card: identity, URL, capabilities, skills.</li>
+    <li>Messages & Parts: roles plus text/file/data parts.</li>
+    <li>Tasks & Artifacts: track work; artifacts hold outputs.</li>
+  </ul>
+  <p><strong>New today:</strong> Agent Executor + Server app that exposes endpoints and streams updates.</p>
+
+  <h2>1. Mental Model</h2>
+  <p>Think cafeteria: Agent Card = menu, Skill = dish, Message = your order, Task = cooking, Artifact = plated meal, Streaming = progress updates, Multi-turn = chef asks for spice level.</p>
+
+  <h2>2. Study Planner Agent – Skills</h2>
+  <p>We will build a Study Planner with three skills:</p>
+  <ol>
+    <li><strong>generate_study_plan</strong>: day-by-day schedule given exam date and hours.</li>
+    <li><strong>suggest_breaks</strong>: break pattern for given total hours.</li>
+    <li><strong>adjust_plan</strong>: tweak an existing plan under new constraints.</li>
+  </ol>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>app.py</code>, define the skills and Agent Card below.</p>
+  </div>
+  <pre><code># Skills and Agent Card
+from a2a.types import AgentSkill, AgentCard, AgentCapabilities
+
+generate_plan_skill = AgentSkill(
+    id="generate_study_plan",
+    name="Generate Study Plan",
+    description="Creates a day-by-day study schedule given exam date and daily hours.",
+    tags=["study","plan","schedule"],
+    examples=[
+        "Create a study plan for a math exam on 2025-12-10 with 2 hours per weekday",
+        "Plan my revision until next Friday for chemistry, 3h/day"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"]
+)
+
+suggest_breaks_skill = AgentSkill(
+    id="suggest_breaks",
+    name="Suggest Break Pattern",
+    description="Suggests micro and longer break intervals based on total planned hours.",
+    tags=["study","health","breaks"],
+    examples=[
+        "Suggest breaks for 5 hours of study per day",
+        "Break plan for 8h intensive day"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"]
+)
+
+adjust_plan_skill = AgentSkill(
+    id="adjust_plan",
+    name="Adjust Existing Plan",
+    description="Adjusts a previous plan when constraints change (e.g., no Wednesday study).",
+    tags=["study","adjust","reschedule"],
+    examples=[
+        "I cannot study Wednesdays now, update my plan",
+        "Shift heavy topics earlier"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"]
+)
+
+study_skills = [generate_plan_skill, suggest_breaks_skill, adjust_plan_skill]
+
+study_agent_card = AgentCard(
+    name="Study Planner Agent",
+    description="Helps generate, refine, and adjust study schedules for exams.",
+    url="http://localhost:8100/",
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain","application/json"],
+    capabilities=AgentCapabilities(streaming=True, push_notifications=False),
+    skills=study_skills,
+    supports_authenticated_extended_card=False,
+)
+
+print("Study Planner Agent Card ready", [s.id for s in study_skills])</code></pre>
+
+  <h2>3. Implement the Agent Executor (Modern TaskUpdater)</h2>
+  <p>Use <code>TaskUpdater</code> for clean status updates, artifacts, and cancellation checks. Input arrives via <code>context.get_user_input()</code>. We stream progress for plan generation, prompt for date when missing, and handle cancellation.</p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>app.py</code>, add this executor class after the Agent Card.</p>
+  </div>
+  <pre><code>import asyncio, datetime, re, json
+from typing import Optional
+
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.server.tasks import TaskUpdater
+from a2a.types import Part, TextPart, TaskState, UnsupportedOperationError
+from a2a.utils import new_agent_text_message, new_task
+from a2a.utils.errors import ServerError
+
+DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+
+def _extract_date(text: str) -> Optional[str]:
+    m = DATE_RE.search(text)
+    return m.group(1) if m else None
+
+def _build_plan(exam_date: str, daily_hours: int = 2, days: int = 7):
+    start = datetime.date.today()
+    end = datetime.date.fromisoformat(exam_date)
+    delta_days = (end - start).days
+    span = min(delta_days, days)
+    topics = [
+        "Review Notes","Practice Problems","Past Papers",
+        "Weak Areas","Formula Drill","Mixed Review","Full Mock"
+    ]
+    plan = []
+    for i in range(span):
+        day_date = start + datetime.timedelta(days=i)
+        plan.append({
+            "date": day_date.isoformat(),
+            "focus": topics[i % len(topics)],
+            "hours": daily_hours,
+        })
+    return plan
+
+class StudyPlannerExecutor(AgentExecutor):
+    """Study Planner using modern TaskUpdater."""
+
+    def __init__(self):
+        self._active_operations = {}
+
+    async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+        user_text = context.get_user_input()
+        task = context.current_task or new_task(context.message)
+        if context.current_task is None:
+            await event_queue.enqueue_event(task)
+
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        self._active_operations[task.id] = {"updater": updater, "cancelled": False}
+
+        try:
+            exam_date = _extract_date(user_text)
+
+            if "generate" in user_text and not exam_date:
+                await updater.update_status(
+                    TaskState.input_required,
+                    new_agent_text_message(
+                        "Please provide the exam date in YYYY-MM-DD format.",
+                        task.context_id,
+                        task.id,
+                    ),
+                    final=True,
+                )
+                return
+
+            if "generate" in user_text and exam_date:
+                await updater.update_status(
+                    TaskState.working,
+                    new_agent_text_message(
+                        "Creating your personalized study schedule...",
+                        task.context_id,
+                        task.id,
+                    ),
+                )
+                if self._is_cancelled(task.id):
+                    return
+                await asyncio.sleep(0.2)
+                if self._is_cancelled(task.id):
+                    return
+                await updater.update_status(
+                    TaskState.working,
+                    new_agent_text_message(
+                        "Analyzing available study time and topics...",
+                        task.context_id,
+                        task.id,
+                    ),
+                )
+                plan = _build_plan(exam_date)
+                await asyncio.sleep(0.2)
+                if self._is_cancelled(task.id):
+                    return
+                await updater.add_artifact(
+                    [Part(root=TextPart(text=json.dumps(plan, indent=2)))],
+                    name="study_plan.json",
+                )
+                await updater.complete()
+                return
+
+            if "break" in user_text:
+                await updater.add_artifact(
+                    [Part(root=TextPart(text=(
+                        "For each 50 min study, take a 10 min break; "
+                        "every 3 hours take a 30 min recharge."
+                    )))],
+                    name="break_suggestions.txt",
+                )
+                await updater.complete()
+                return
+
+            if "adjust" in user_text:
+                await updater.add_artifact(
+                    [Part(root=TextPart(text=(
+                        "Adjusted: Shift hard topics earlier; avoid Wednesdays; "
+                        "keep mock exam on last day."
+                    )))],
+                    name="adjusted_plan.txt",
+                )
+                await updater.complete()
+                return
+
+            await updater.update_status(
+                TaskState.failed,
+                new_agent_text_message(
+                    "Unrecognized request. Try: generate plan, suggest breaks, or adjust plan.",
+                    task.context_id,
+                    task.id,
+                ),
+                final=True,
+            )
+        finally:
+            self._active_operations.pop(task.id, None)
+
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        task = context.current_task
+        if not task:
+            return
+        if task.id in self._active_operations:
+            self._active_operations[task.id]["cancelled"] = True
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        await updater.update_status(
+            TaskState.cancelled,
+            new_agent_text_message(
+                "Task was cancelled by user request.",
+                task.context_id,
+                task.id,
+            ),
+            final=True,
+        )
+        print(f"Task {task.id} cancelled")
+
+    def _is_cancelled(self, task_id: str) -> bool:
+        return self._active_operations.get(task_id, {}).get("cancelled", False)
+
+print("Modern StudyPlannerExecutor ready")</code></pre>
+
+  <h2>4. Start the Server (run in terminal)</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>app.py</code>, add the server wiring below and run it in a terminal.</p>
+  </div>
+  <pre><code>from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.tasks import InMemoryTaskStore
+from a2a.server.apps import A2AStarletteApplication
+import uvicorn
+
+request_handler = DefaultRequestHandler(
+    agent_executor=StudyPlannerExecutor(),
+    task_store=InMemoryTaskStore(),
+)
+server_app_builder = A2AStarletteApplication(
+    agent_card=study_agent_card,
+    http_handler=request_handler,
+)
+
+if __name__ == "__main__":
+    uvicorn.run(server_app_builder.build(), host="0.0.0.0", port=8100)
+</code></pre>
+  <p><strong>Run:</strong> activate your venv, then <code>python app.py</code>. Open <code>http://localhost:8100/.well-known/agent-card.json</code> to verify.</p>
+
+  <h2>5. Client Helpers (simple, httpx + ClientFactory)</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>In <code>client.py</code>, add the helper functions below.</p>
+  </div>
+  <pre><code>import asyncio, uuid, json, pprint, httpx
+from a2a.client.client import ClientConfig
+from a2a.client.client_factory import ClientFactory
+from a2a.types import Message, TextPart, Role, TransportProtocol
+
+BASE_URL = "http://localhost:8100"
+
+async def _make_client(*, streaming: bool):
+    timeout = httpx.Timeout(connect=30.0, read=600.0, write=30.0, pool=30.0)
+    httpx_client = httpx.AsyncClient(timeout=timeout)
+    config = ClientConfig(
+        httpx_client=httpx_client,
+        streaming=streaming,
+        supported_transports=[TransportProtocol.jsonrpc],
+    )
+    client = await ClientFactory.connect(agent=BASE_URL, client_config=config)
+    return client, httpx_client
+
+async def send_simple(message_text: str):
+    client, httpx_client = await _make_client(streaming=False)
+    try:
+        msg = Message(
+            message_id=uuid.uuid4().hex,
+            role=Role.user,
+            parts=[TextPart(text=message_text)],
+        )
+        async for event in client.send_message(msg):
+            return event.model_dump(mode="json", exclude_none=True)
+    finally:
+        await client.close()
+        await httpx_client.aclose()
+
+async def send_stream(message_text: str):
+    client, httpx_client = await _make_client(streaming=True)
+    try:
+        msg = Message(
+            message_id=uuid.uuid4().hex,
+            role=Role.user,
+            parts=[TextPart(text=message_text)],
+        )
+        async for event in client.send_message(msg):
+            if isinstance(event, tuple):
+                task, update = event
+                print("TASK:", json.dumps(task.model_dump(mode="json", exclude_none=True), indent=2))
+                if update:
+                    print("UPDATE:", json.dumps(update.model_dump(mode="json", exclude_none=True), indent=2))
+            else:
+                pprint.pp(event.model_dump(mode="json", exclude_none=True))
+    finally:
+        await client.close()
+        await httpx_client.aclose()
+
+print("Client helpers ready")</code></pre>
+
+  <h2>6. Try It</h2>
+  <p>Start the server first, then in <code>client.py</code> (or another script) run:</p>
+  <pre><code># Non-streaming (immediate artifact)
+await send_simple("suggest breaks for 6 hours study")
+
+# Streaming with progress and final JSON artifact
+await send_stream("generate plan for exam on 2025-12-10")
+
+# Multi-turn: missing date triggers input_required
+await send_stream("generate plan")
+
+# (Optional) Cancellation: start streaming then cancel via your client logic
+# task = asyncio.create_task(send_stream("generate plan for exam on 2025-12-15"))
+# await asyncio.sleep(0.1)
+# await cancel_task(task_id)
+</code></pre>
+  <p><strong>Expected behavior:</strong> break/adjust respond immediately with artifacts; generate-with-date streams progress then emits <code>study_plan.json</code>; generate-without-date asks for the date; cancelled tasks emit <code>cancelled</code> state; unknown text fails with a helpful message.</p>
+
+  <h2>7. Multi-Turn Clarification Flow</h2>
+  <ol>
+    <li>User: "generate plan"</li>
+    <li>Agent: status <code>input_required</code> asking for YYYY-MM-DD date</li>
+    <li>User: "generate plan for exam on 2025-12-10"</li>
+    <li>Agent: streams progress → emits artifact → completes</li>
+  </ol>
+
+  <h2>8. Checklist</h2>
+  <ul>
+    <li>Agent Card served at <code>/.well-known/agent-card.json</code></li>
+    <li>Executor streams updates and artifacts</li>
+    <li>Cancellation flips to <code>cancelled</code> with cleanup</li>
+    <li>Multi-turn prompt when exam date missing</li>
+    <li>Artifacts used for structured outputs</li>
+  </ul>
+
+  <p style="margin-top: 2rem; text-align: center; color: #475569;">You now have a running Study Planner agent with streaming, cancellation, and multi-turn handling. Next: deploy or extend with real study data sources.</p>
+</main>
+</body>
+</html>

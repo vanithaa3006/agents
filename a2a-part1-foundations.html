@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>A2A Protocol Foundations – Hands-on Lab (Part 1)</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p {
+      margin: 0.5rem 0 0.75rem;
+    }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul {
+      padding-left: 1.4rem;
+    }
+    li {
+      margin: 0.25rem 0;
+    }
+    .sample-output-title {
+      font-weight: 600;
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>A2A Protocol Foundations – Hands-on Lab (Part 1)</h1>
+
+  <div class="note">
+    <strong>How to use this lab</strong>
+    <ol>
+      <li>Open your code editor or Jupyter Notebook and create a notebook named <code>a2a_tutorial_part1_foundations.ipynb</code> (or reuse the existing one).</li>
+      <li>Place this HTML guide side-by-side with your notebook.</li>
+      <li>Each time you see a section titled <strong>Your Task</strong>, create a new cell in your notebook and copy or type the code.</li>
+      <li>Run the cells in order and read the explanations and printed outputs to understand the A2A concepts.</li>
+      <li>Experiment by tweaking descriptions, tags, and capabilities once the main tasks work.</li>
+    </ol>
+  </div>
+
+  <h2>1. What is A2A?</h2>
+  <p>A2A (Agent-to-Agent) is a protocol that lets AI agents discover, describe, and talk to each other. Instead of bespoke integrations, agents share a standard card that lists who they are, what they can do, and how to contact them.</p>
+  <p><strong>Problem solved:</strong> Agents stop being isolated islands. They can discover each other, communicate with a common JSON-based language, and stay autonomous.</p>
+  <p><strong>Key benefits:</strong></p>
+  <ul>
+    <li>Interoperability: different vendors can talk cleanly.</li>
+    <li>Security: agents remain black boxes; no internal logic is exposed.</li>
+    <li>Simplicity: HTTP and JSON fundamentals.</li>
+    <li>Flexibility: text, files, structured data.</li>
+    <li>Async support: streaming and callbacks for long tasks.</li>
+  </ul>
+
+  <h2>2. Core Concepts</h2>
+
+  <h3>2.1 The Three Actors</h3>
+  <pre><code>+---------+         +--------------+         +--------------+
+|  User   | ----->  | Client Agent | ----->  | Remote Agent |
+| (Human) |         | (Your App)   |  A2A    | (Service)    |
++---------+         +--------------+         +--------------+
+     ^                     ^                        |
+     +---------------------+------------------------+
+                Coordinated Response
+</code></pre>
+  <p><strong>User:</strong> whoever requests work. <strong>Client Agent:</strong> your app that speaks A2A. <strong>Remote Agent:</strong> specialized service that performs the work.</p>
+
+  <h3>2.2 Agent Card (business card)</h3>
+  <p>Describes identity, URL, skills, supported formats, and auth needs.</p>
+  <pre><code>{
+  "name": "Weather Agent",
+  "description": "Provides real-time weather information for any location",
+  "url": "https://weather-agent.example.com/",
+  "skills": [...]
+}
+</code></pre>
+
+  <h3>2.3 Agent Skills</h3>
+  <p>Each skill is a capability with id, name, description, examples, and supported input/output modes.</p>
+  <ul>
+    <li>Examples: get current weather, convert currency, book flights, translate text.</li>
+    <li>Make ids concise (e.g., <code>get_weather</code>), give good examples, and tag skills for discovery.</li>
+  </ul>
+
+  <h3>2.4 Messages and Parts</h3>
+  <p>Communication uses messages made of parts:</p>
+  <pre><code>Message = {
+    "role": "user" or "agent",
+    "parts": [...]
+}
+</code></pre>
+  <ul>
+    <li>TextPart: plain text.</li>
+    <li>FilePart: files such as images or PDFs.</li>
+    <li>DataPart: structured JSON payloads.</li>
+  </ul>
+
+  <h3>2.5 Tasks and Artifacts</h3>
+  <p>Tasks track work status; artifacts are the outputs (documents, images, reports). A task flows submitted → working → completed/failed and can stream updates or request more input.</p>
+
+  <h3>2.6 Communication Patterns</h3>
+  <ol>
+    <li>Request/Response: simple ask-and-answer.</li>
+    <li>Streaming: incremental updates while working.</li>
+    <li>Push notifications: callbacks for long-running work.</li>
+  </ol>
+
+  <h2>3. Environment Setup</h2>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Install the A2A SDK and supporting packages in your terminal.</p>
+  </div>
+  <pre><code>pip install "a2a-sdk[all]" httpx uvicorn</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create a new notebook cell and import the core types.</p>
+  </div>
+  <pre><code># Import core A2A types
+from a2a.types import (
+    AgentCard,
+    AgentSkill,
+    AgentCapabilities,
+    Message,
+    TextPart,
+)
+from uuid import uuid4
+from datetime import datetime
+import json
+
+print("All imports successful!")</code></pre>
+
+  <h2>4. Creating Agent Skills</h2>
+
+  <h3>4.1 AgentSkill structure</h3>
+  <pre><code>AgentSkill(
+    id="unique_identifier",
+    name="Human Readable Name",
+    description="Detailed explanation",
+    tags=["keyword1", "keyword2"],
+    examples=["example query 1", "example query 2"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain"]
+)
+</code></pre>
+
+  <h3>4.2 Example: Current Weather skill</h3>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Add this skill to your notebook.</p>
+  </div>
+  <pre><code># Create a skill for getting current weather
+current_weather_skill = AgentSkill(
+    id="get_current_weather",
+    name="Get Current Weather",
+    description=(
+        "Provides current weather information for any city worldwide, including "
+        "temperature, conditions, humidity, and wind speed."
+    ),
+    tags=["weather", "current", "temperature", "conditions"],
+    examples=[
+        "What's the weather in New York?",
+        "Tell me the current weather in Tokyo",
+        "How's the weather in Paris right now?",
+        "Is it raining in London?"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain", "application/json"]
+)
+
+print("Current Weather skill created")
+print(f"ID: {current_weather_skill.id}")
+print(f"Name: {current_weather_skill.name}")
+print(f"Tags: {', '.join(current_weather_skill.tags)}")</code></pre>
+
+  <h3>4.3 Example: Weather Forecast skill</h3>
+  <pre><code># Create a skill for weather forecasts
+forecast_skill = AgentSkill(
+    id="get_weather_forecast",
+    name="Get Weather Forecast",
+    description=(
+        "Provides multi-day weather forecasts (up to 7 days) for any location, including "
+        "daily high/low temperatures, precipitation probability, and weather conditions."
+    ),
+    tags=["weather", "forecast", "prediction", "future"],
+    examples=[
+        "What will the weather be like in Seattle this weekend?",
+        "Give me a 5-day forecast for Miami",
+        "Will it rain in Berlin next week?",
+        "Show me the weather forecast for Sydney"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain", "application/json"]
+)
+
+print("Weather Forecast skill created")
+print(f"ID: {forecast_skill.id}")
+print(f"Examples: {len(forecast_skill.examples)} sample queries")</code></pre>
+
+  <h3>4.4 Example: Weather Alerts skill</h3>
+  <pre><code># Create a skill for weather alerts
+alerts_skill = AgentSkill(
+    id="get_weather_alerts",
+    name="Get Weather Alerts",
+    description=(
+        "Provides active weather alerts, warnings, and advisories for a specific location, "
+        "including severe weather notifications."
+    ),
+    tags=["weather", "alerts", "warnings", "emergency", "severe"],
+    examples=[
+        "Are there any weather alerts for Houston?",
+        "Check for severe weather warnings in Chicago",
+        "Any storm warnings for Miami?",
+        "Show me weather advisories for San Francisco"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain", "application/json"]
+)
+
+print("Weather Alerts skill created")
+print(f"ID: {alerts_skill.id}")
+print(f"Description: {alerts_skill.description[:60]}...")</code></pre>
+
+  <h3>4.5 View all skills</h3>
+  <pre><code># Collect all skills
+weather_skills = [
+    current_weather_skill,
+    forecast_skill,
+    alerts_skill
+]
+
+print("Weather Agent Skills Summary:\n")
+for i, skill in enumerate(weather_skills, 1):
+    print(f"{i}. {skill.name}")
+    print(f"   ID: {skill.id}")
+    print(f"   Tags: {', '.join(skill.tags)}")
+    print(f"   Examples: {len(skill.examples)} queries")
+    print()
+</code></pre>
+
+  <h2>5. Creating the Agent Card</h2>
+
+  <h3>5.1 AgentCard structure</h3>
+  <p>An AgentCard lists identity, URL, capabilities (streaming, push), default modes, and skills.</p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create the Weather Agent Card in a new cell.</p>
+  </div>
+  <pre><code># Create the Weather Agent Card
+weather_agent_card = AgentCard(
+    name="Weather Intelligence Agent",
+    description=(
+        "A comprehensive weather information service providing current conditions, "
+        "forecasts, and severe weather alerts for locations worldwide."
+    ),
+    url="http://localhost:8000/",  # Where the agent will be hosted
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain", "application/json"],
+    capabilities=AgentCapabilities(
+        streaming=True,  # Supports real-time streaming responses
+        push_notifications=False  # Push not needed for now
+    ),
+    skills=weather_skills,
+    supports_authenticated_extended_card=False
+)
+
+print("Weather Agent Card created")
+print(f"Name: {weather_agent_card.name}")
+print(f"Version: {weather_agent_card.version}")
+print(f"URL: {weather_agent_card.url}")
+print(f"Number of Skills: {len(weather_agent_card.skills)}")
+print(f"Streaming Enabled: {weather_agent_card.capabilities.streaming}")</code></pre>
+
+  <h3>5.2 View the Agent Card as JSON</h3>
+  <pre><code># Convert the Agent Card to JSON format
+agent_card_json = weather_agent_card.model_dump(mode="json", exclude_none=True)
+
+# Pretty print the JSON
+print("Agent Card JSON (as seen by other agents):\n")
+print(json.dumps(agent_card_json, indent=2))</code></pre>
+
+  <h3>5.3 How other agents use this card</h3>
+  <ol>
+    <li>Discover: fetch <code>/.well-known/agent-card.json</code>.</li>
+    <li>Parse: understand capabilities and skills.</li>
+    <li>Choose: pick the right skill for the task.</li>
+    <li>Send: call the agent URL with a message containing the chosen skill.</li>
+  </ol>
+
+  <h2>6. Hands-On Practice</h2>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create a Restaurant Recommendation Agent with three skills: search restaurants, get details, and check availability. Try it yourself, then compare with the solution.</p>
+  </div>
+
+  <pre><code># Restaurant Agent Skills
+
+# Skill 1: Search restaurants
+search_restaurants_skill = AgentSkill(
+    id="search_restaurants",
+    name="Search Restaurants",
+    description=(
+        "Search for restaurants by cuisine type, location, price range, and ratings."
+    ),
+    tags=["restaurant", "search", "cuisine", "dining"],
+    examples=[
+        "Find Italian restaurants near Times Square",
+        "Show me affordable sushi places in San Francisco",
+        "Looking for highly-rated French restaurants",
+        "Find Mexican food in Austin under $30"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain", "application/json"]
+)
+
+# Skill 2: Get restaurant details
+restaurant_details_skill = AgentSkill(
+    id="get_restaurant_details",
+    name="Get Restaurant Details",
+    description=(
+        "Provides detailed information about a specific restaurant including address, "
+        "phone number, hours, menu, and customer reviews."
+    ),
+    tags=["restaurant", "details", "information", "reviews"],
+    examples=[
+        "Tell me about Olive Garden on 5th Avenue",
+        "What are the hours for Joe's Pizza?",
+        "Show me reviews for The Cheesecake Factory",
+        "Get contact info for Blue Hill Restaurant"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain", "application/json"]
+)
+
+# Skill 3: Check availability
+check_availability_skill = AgentSkill(
+    id="check_availability",
+    name="Check Restaurant Availability",
+    description=(
+        "Checks if a restaurant has available reservations for a specific date, "
+        "time, and party size."
+    ),
+    tags=["restaurant", "reservation", "availability", "booking"],
+    examples=[
+        "Is Mama's Kitchen available Saturday at 7pm for 4 people?",
+        "Check if I can book a table for 2 tomorrow evening",
+        "Do they have openings for dinner tonight?",
+        "Can I make a reservation for 6 people this Friday?"
+    ],
+    input_modes=["text/plain"],
+    output_modes=["text/plain", "application/json"]
+)
+
+# Create the Restaurant Agent Card
+restaurant_agent_card = AgentCard(
+    name="Restaurant Finder Agent",
+    description=(
+        "Your personal dining assistant that helps you discover, explore, and book "
+        "restaurants based on your preferences."
+    ),
+    url="http://localhost:8001/",
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain", "application/json"],
+    capabilities=AgentCapabilities(
+        streaming=True,
+        push_notifications=False
+    ),
+    skills=[
+        search_restaurants_skill,
+        restaurant_details_skill,
+        check_availability_skill
+    ],
+    supports_authenticated_extended_card=False
+)
+
+print("Restaurant Finder Agent created")
+print(f"Name: {restaurant_agent_card.name}")
+print(f"Skills: {len(restaurant_agent_card.skills)}")
+print("\nSkills:")
+for skill in restaurant_agent_card.skills:
+    print(f"- {skill.name}")
+</code></pre>
+
+  <h2>7. Key Takeaways</h2>
+  <ul>
+    <li>A2A defines a standard way for agents to describe themselves and communicate.</li>
+    <li>AgentSkill objects define capabilities with ids, examples, and formats.</li>
+    <li>AgentCard aggregates identity, capabilities, and skills for discovery.</li>
+    <li>Messages contain parts (text, file, data); tasks track work and artifacts.</li>
+    <li>Common patterns: request/response, streaming, push callbacks.</li>
+  </ul>
+
+  <h2>8. Quick Reference</h2>
+  <pre><code>from a2a.types import (
+    AgentCard,           # Agent business card
+    AgentSkill,          # Individual capability
+    AgentCapabilities,   # Features the agent supports
+    Message,             # Communication unit
+    TextPart,            # Text content
+    FilePart,            # File attachments
+    DataPart,            # Structured JSON data
+)
+</code></pre>
+  <p><strong>Useful links:</strong></p>
+  <ul>
+    <li>Official Docs: https://a2a-protocol.org/</li>
+    <li>GitHub: https://github.com/a2aproject/A2A</li>
+    <li>Python SDK: https://github.com/a2aproject/a2a-python</li>
+  </ul>
+  <p><strong>Knowledge check:</strong></p>
+  <ol>
+    <li>Explain what A2A is and why it is useful.</li>
+    <li>Create an AgentSkill with solid examples and modes.</li>
+    <li>Build an AgentCard with multiple skills and capabilities.</li>
+    <li>Differentiate Messages, Tasks, and Artifacts.</li>
+  </ol>
+
+  <h2>9. Save Your Work</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Persist your agent cards so you can reuse them in Part 2.</p>
+  </div>
+  <pre><code>import os
+
+# Create a directory for agent cards
+os.makedirs("agent_cards", exist_ok=True)
+
+# Save Weather Agent Card
+with open("agent_cards/weather_agent_card.json", "w") as f:
+    json.dump(weather_agent_card.model_dump(mode="json", exclude_none=True), f, indent=2)
+
+# Save Restaurant Agent Card
+with open("agent_cards/restaurant_agent_card.json", "w") as f:
+    json.dump(restaurant_agent_card.model_dump(mode="json", exclude_none=True), f, indent=2)
+
+print("Agent cards saved")
+print("agent_cards/weather_agent_card.json")
+print("agent_cards/restaurant_agent_card.json")
+print("You are ready for Part 2")
+</code></pre>
+
+  <p style="margin-top: 2rem; text-align: center; color: #475569;">Great job finishing Part 1. In Part 2 you will build the agent executor, start an HTTP server, and handle A2A requests.</p>
+</main>
+</body>
+</html>

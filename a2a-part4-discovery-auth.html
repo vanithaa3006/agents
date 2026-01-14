@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>A2A Protocol – Discovery & Authentication</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p { margin: 0.5rem 0 0.75rem; }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+      position: relative;
+    }
+    pre code { background: none; padding: 0; color: inherit; }
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: #0ea5e9;
+      color: #0b1120;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      transition: background 0.2s ease;
+    }
+    .copy-btn:hover { background: #38bdf8; }
+    .copy-btn:active { background: #0284c7; }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul { padding-left: 1.4rem; }
+    li { margin: 0.25rem 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>A2A Part 4 – Discovery & Auth</h1>
+
+  <div class="note">
+    <strong>How to use this lab</strong>
+    <ol>
+      <li>Work in any folder you like; place server/client scripts together for convenience.</li>
+      <li>Reuse your venv; install any missing deps with <code>pip install a2a httpx uvicorn</code>.</li>
+      <li>Run two lightweight sample agents (weather + calendar) and a coordinator that discovers them.</li>
+    </ol>
+  </div>
+
+  <h2>0. Setup</h2>
+  <ol>
+    <li>Create/activate venv.</li>
+    <li>Install deps: <code>pip install a2a httpx uvicorn</code>.</li>
+    <li>Pick any three free ports (examples: <code>8200</code> weather, <code>8201</code> calendar, <code>8202</code> coordinator).</li>
+  </ol>
+
+  <h2>1. Discovery primitives</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Add the helpers below into a scratch file (e.g., <code>discovery.py</code>) to test manual vs resolver discovery.</p>
+  </div>
+
+  <pre><code># discovery.py (imports + helpers)
+from a2a.types import AgentCard, AgentSkill, AgentCapabilities, Message, TextPart
+from a2a.client.card_resolver import A2ACardResolver
+import httpx, asyncio, json
+from uuid import uuid4
+
+async def discover_agent_manual(base_url: str):
+    """Manual fetch of /.well-known/agent-card.json."""
+    well_known_url = f"{base_url}/.well-known/agent-card.json"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(well_known_url)
+            resp.raise_for_status()
+            data = resp.json()
+            print(f"✅ Discovered {data.get('name','?')} at {base_url}")
+            return data
+        except httpx.HTTPError as e:
+            print(f"❌ Failed: {e}")
+            return None
+
+async def discover_agent_with_resolver(base_url: str):
+    """Recommended: A2ACardResolver handles the well-known fetch and parsing."""
+    async with httpx.AsyncClient() as httpx_client:
+        resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
+        try:
+            card = await resolver.get_agent_card()
+            print(f"✅ Resolver found {card.name} ({card.url})")
+            return card
+        except Exception as e:
+            print(f"❌ Failed: {e}")
+            return None
+
+if __name__ == "__main__":
+    asyncio.run(discover_agent_manual("http://localhost:8200"))
+    asyncio.run(discover_agent_with_resolver("http://localhost:8200"))</code></pre>
+
+  <h2>2. Two sample agents</h2>
+  <p>Create two simple cards to discover: Weather and Calendar.</p>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Drop this into <code>agents.py</code> (or inline inside your server file) to define the cards.</p>
+  </div>
+
+  <pre><code># agents.py (cards only)
+from a2a.types import AgentSkill, AgentCard, AgentCapabilities
+
+weather_skill = AgentSkill(
+    id="get_weather",
+    name="Get Weather Information",
+    description="Provides current weather conditions for any location.",
+    tags=["weather","forecast","temperature"],
+    examples=["What's the weather in New York?", "Tell me the temperature in Tokyo", "Is it raining in London?"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"],
+)
+
+calendar_skill = AgentSkill(
+    id="manage_calendar",
+    name="Manage Calendar Events",
+    description="Creates, updates, and queries calendar events.",
+    tags=["calendar","events","scheduling"],
+    examples=["Add a meeting tomorrow at 2pm", "What's on my calendar next week?", "Schedule a call with John on Friday"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"],
+)
+
+weather_agent_card = AgentCard(
+    name="Weather Information Agent",
+    description="Provides real-time weather information for locations worldwide.",
+    url="http://localhost:8200/",
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain","application/json"],
+    capabilities=AgentCapabilities(streaming=True, push_notifications=False),
+    skills=[weather_skill],
+    supports_authenticated_extended_card=False,
+)
+
+calendar_agent_card = AgentCard(
+    name="Calendar Management Agent",
+    description="Manages calendar events, scheduling, and reminders.",
+    url="http://localhost:8201/",
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain","application/json"],
+    capabilities=AgentCapabilities(streaming=True, push_notifications=False),
+    skills=[calendar_skill],
+    supports_authenticated_extended_card=False,
+)
+
+print("Cards ready", [s.id for s in weather_agent_card.skills + calendar_agent_card.skills])</code></pre>
+
+  <h3>2a. Dummy executors for quick testing</h3>
+  <p>Spin up two minimal executors that always return canned responses so you can exercise the discovery client without external services.</p>
+  <div class="exercise">
+  <div class="exercise-title">Your Task</div>
+  <p>Create <code>dummy_servers.py</code> and run each server in its own shell: <code>python dummy_servers.py weather</code> and <code>python dummy_servers.py calendar</code>.</p>
+  </div>
+
+  <pre><code># dummy_servers.py
+import asyncio
+import sys
+import uvicorn
+from a2a.server.agent_execution import AgentExecutor, RequestContext
+from a2a.server.events import EventQueue
+from a2a.server.tasks import TaskUpdater, InMemoryTaskStore
+from a2a.server.request_handlers import DefaultRequestHandler
+from a2a.server.apps import A2AStarletteApplication
+from a2a.types import TaskState
+from a2a.utils import new_agent_text_message, new_task
+
+# Reuse the cards from agents.py (import them)
+from agents import weather_agent_card, calendar_agent_card
+
+
+class _BaseDummyExecutor(AgentExecutor):
+  def __init__(self, reply_text: str):
+    self.reply_text = reply_text
+
+  async def execute(self, context: RequestContext, event_queue: EventQueue) -> None:
+    task = context.current_task or new_task(context.message)
+    if context.current_task is None:
+      await event_queue.enqueue_event(task)
+    updater = TaskUpdater(event_queue, task.id, task.context_id)
+    # One-shot response for quick smoke tests
+    await updater.update_status(
+      TaskState.completed,
+      new_agent_text_message(self.reply_text, task.context_id, task.id),
+      final=True,
+    )
+
+
+class WeatherExecutor(_BaseDummyExecutor):
+  def __init__(self):
+    super().__init__("Sunny with a light breeze (dummy response).")
+
+
+class CalendarExecutor(_BaseDummyExecutor):
+  def __init__(self):
+    super().__init__("Calendar updated: added placeholder event (dummy response).")
+
+
+def build_app(agent_card, executor):
+  handler = DefaultRequestHandler(agent_executor=executor, task_store=InMemoryTaskStore())
+  return A2AStarletteApplication(agent_card=agent_card, http_handler=handler).build()
+
+
+def main():
+  if len(sys.argv) < 2:
+    print("Usage: python dummy_servers.py [weather|calendar]")
+    sys.exit(1)
+
+  which = sys.argv[1].lower()
+  if which == "weather":
+    app = build_app(weather_agent_card, WeatherExecutor())
+    uvicorn.run(app, host="0.0.0.0", port=8200)
+  elif which == "calendar":
+    app = build_app(calendar_agent_card, CalendarExecutor())
+    uvicorn.run(app, host="0.0.0.0", port=8201)
+  else:
+    print("Unknown option. Use weather or calendar.")
+
+
+if __name__ == "__main__":
+  main()</code></pre>
+
+  <h2>3. Discovery client</h2>
+  <p>A reusable client that discovers many agents, lists them, and finds matches by skill/tag.</p>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Add the class below to <code>discovery.py</code> (or a new file) and reuse it across your scripts.</p>
+  </div>
+
+    <pre><code>class AgentDiscoveryClient:
+    """Discover and manage multiple A2A agents."""
+    def __init__(self):
+      self.discovered_agents = {}
+
+    async def discover_agent(self, base_url: str) -> AgentCard:
+      if base_url in self.discovered_agents:
+        print(f"ℹ️ Already have {base_url}")
+        return self.discovered_agents[base_url]
+      async with httpx.AsyncClient() as httpx_client:
+        resolver = A2ACardResolver(httpx_client=httpx_client, base_url=base_url)
+        try:
+          card = await resolver.get_agent_card()
+          self.discovered_agents[base_url] = card
+          print(f"✅ Discovered {card.name} ({base_url})")
+          return card
+        except Exception as e:
+          print(f"❌ Failed to discover {base_url}: {e}")
+          return None
+
+    async def discover_multiple(self, base_urls: list[str]):
+      """Discover each URL one by one and report how many succeeded."""
+      found = []
+      for url in base_urls:
+        card = await self.discover_agent(url)
+        if card:
+          found.append(card)
+      print(f"\n📊 Discovery: {len(found)}/{len(base_urls)} found")
+      return found
+
+    def find_agent_by_skill(self, skill_id: str):
+      matches = []
+      for base_url, card in self.discovered_agents.items():
+        if skill_id in [s.id for s in card.skills]:
+          matches.append((base_url, card))
+      return matches
+
+    def find_agent_by_tag(self, tag: str):
+      matches = []
+      for base_url, card in self.discovered_agents.items():
+        for skill in card.skills:
+          if tag.lower() in [t.lower() for t in skill.tags]:
+            matches.append((base_url, card))
+            break
+      return matches
+
+    def list_all_agents(self):
+      print("\n📋 Discovered Agents")
+      print("=" * 60)
+      for base_url, card in self.discovered_agents.items():
+        print(f"\n🌐 {card.name}")
+        print(f"   URL: {base_url}")
+        print(f"   Skills: {', '.join([s.id for s in card.skills])}")
+        print(f"   Streaming: {card.capabilities.streaming}")
+      print("\n" + "=" * 60)
+
+  print("AgentDiscoveryClient ready")</code></pre>
+
+  <h2>4. Task coordinator</h2>
+  <p>Routes user queries to the right agent using simple keyword routing.</p>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Place this in <code>coordinator.py</code> (or append in one file). Adjust routing if you add more agents.</p>
+  </div>
+
+    <pre><code>import uuid
+  import httpx
+  from a2a.client.client import ClientConfig
+  from a2a.client.client_factory import ClientFactory
+  from a2a.types import Message, TextPart, Role, TransportProtocol
+
+
+  class TaskCoordinator:
+    """Discover known agents and route user requests."""
+    def __init__(self, known_agent_urls: list[str]):
+      self.discovery_client = AgentDiscoveryClient()
+      self.known_agent_urls = known_agent_urls
+      self.initialized = False
+
+    async def initialize(self):
+      print("🔍 Initializing Task Coordinator...")
+      await self.discovery_client.discover_multiple(self.known_agent_urls)
+      self.initialized = True
+      print("✅ Task Coordinator ready")
+
+    def route_request(self, user_query: str):
+      text = user_query.lower()
+      if any(word in text for word in ["weather","temperature","forecast","rain"]):
+        agents = self.discovery_client.find_agent_by_tag("weather")
+        if agents:
+          return agents[0][0], "get_weather"
+      if any(word in text for word in ["calendar","schedule","meeting","event"]):
+        agents = self.discovery_client.find_agent_by_tag("calendar")
+        if agents:
+          return agents[0][0], "manage_calendar"
+      return None, None
+
+    async def handle_request(self, user_query: str):
+      if not self.initialized:
+        await self.initialize()
+
+      agent_url, skill_id = self.route_request(user_query)
+      if not agent_url:
+        return {"status": "error", "message": "No suitable agent found"}
+
+      # Create a client on the fly (no cached A2AClient); reuse ClientFactory as in Part 3
+      timeout = httpx.Timeout(connect=30.0, read=600.0, write=30.0, pool=30.0)
+      httpx_client = httpx.AsyncClient(timeout=timeout)
+      cfg = ClientConfig(
+        httpx_client=httpx_client,
+        streaming=False,
+        supported_transports=[TransportProtocol.jsonrpc],
+      )
+      client = await ClientFactory.connect(agent=agent_url, client_config=cfg)
+
+      try:
+        msg = Message(message_id=uuid.uuid4().hex, role=Role.user, parts=[TextPart(text=user_query)])
+        response = None
+        async for event in client.send_message(msg):
+          response = event.model_dump(mode="json", exclude_none=True)
+        print(f"📤 Routed to {agent_url} via {skill_id}")
+        return {
+          "status": "sent",
+          "agent_url": agent_url,
+          "skill_id": skill_id,
+          "query": user_query,
+          "response": response,
+        }
+      finally:
+        await client.close()
+        await httpx_client.aclose()
+
+
+  print("TaskCoordinator ready")</code></pre>
+
+  <h2>5. Premium agent + auth flag</h2>
+  <p>Extended cards are served only when <code>supports_authenticated_extended_card=True</code> and the client includes credentials.</p>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Add this premium card to a new port (e.g., 8203) if you want to try authenticated discovery later.</p>
+  </div>
+
+  <pre><code># premium_weather.py (card only)
+premium_weather_skill = AgentSkill(
+    id="get_premium_weather",
+    name="Get Premium Weather Data",
+    description="Detailed forecasts with historical data (auth required).",
+    tags=["weather","premium","forecast"],
+    examples=["Get detailed 10-day forecast for New York", "Show historical weather patterns for Tokyo"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain","application/json"],
+)
+
+public_weather_skill = AgentSkill(
+    id="get_weather",
+    name="Get Basic Weather",
+    description="Provides basic current weather information.",
+    tags=["weather","basic"],
+    examples=["What's the weather in Paris?"],
+    input_modes=["text/plain"],
+    output_modes=["text/plain"],
+)
+
+premium_agent_card = AgentCard(
+    name="Premium Weather Agent",
+    description="Weather service with public and premium features.",
+    url="http://localhost:8203/",
+    version="1.0.0",
+    default_input_modes=["text/plain"],
+    default_output_modes=["text/plain","application/json"],
+    capabilities=AgentCapabilities(streaming=True, push_notifications=False),
+    skills=[public_weather_skill],
+    supports_authenticated_extended_card=True,
+)
+
+print("Premium card ready; extended card would include get_premium_weather")</code></pre>
+
+  <h2>6. Try it (runner)</h2>
+  <div class="exercise">
+    <div class="exercise-title">Your Task</div>
+    <p>Create <code>run_coordinator.py</code> to bring up the coordinator and issue a few routed queries.</p>
+  </div>
+
+  <pre><code># run_coordinator.py
+import asyncio
+from coordinator import TaskCoordinator
+
+async def main():
+    coordinator = TaskCoordinator([
+        "http://localhost:8200",  # Weather Agent
+        "http://localhost:8201",  # Calendar Agent
+    ])
+    await coordinator.initialize()
+
+    queries = [
+        "What's the weather in New York?",
+        "Schedule a meeting tomorrow at 2pm",
+        "Is it raining in London?",
+    ]
+    for q in queries:
+        result = await coordinator.handle_request(q)
+        print(f"\n📋 Query: {q}")
+        print(f"   Result: {result}")
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+  <ul>
+    <li>Start simple mock servers that serve the cards on 8200/8201 (or reuse your own agents).</li>
+    <li>Run: <code>python run_coordinator.py</code> and watch routing decisions.</li>
+    <li>Toggle <code>known_agent_urls</code> or routing keywords to extend to new agents.</li>
+  </ul>
+
+  <h2>7. Expected behavior</h2>
+  <ul>
+    <li>Well-known card fetch works via manual HTTP or <code>A2ACardResolver</code>.</li>
+    <li>Discovery client caches cards and lists skills/tags for routing.</li>
+    <li>Task coordinator routes weather queries to port 8200 and calendar queries to port 8201.</li>
+    <li>Premium agent sets <code>supports_authenticated_extended_card=True</code>; extended card is gated by auth.</li>
+    <li>You can add registries or direct-config URLs to <code>known_agent_urls</code> with no code changes.</li>
+  </ul>
+
+  <p style="margin-top: 2rem; text-align: center; color: #475569;">You now have a discovery/auth lab: publish cards, discover them, and route requests across multiple agents.</p>
+</main>
+<script>
+  (function attachCopyButtons() {
+    const pres = document.querySelectorAll('pre');
+    pres.forEach(pre => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'Copy';
+      btn.addEventListener('click', async () => {
+        const codeEl = pre.querySelector('code');
+        const code = codeEl ? codeEl.innerText : pre.innerText;
+        try {
+          await navigator.clipboard.writeText(code);
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy', 1200);
+        } catch (e) {
+          btn.textContent = 'Error';
+          setTimeout(() => btn.textContent = 'Copy', 1200);
+        }
+      });
+      pre.appendChild(btn);
+    });
+  })();
+</script>
+</body>
+</html>

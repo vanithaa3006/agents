@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MCP Student Guide – File System &amp; Database Servers</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef2ff 0, #f9fafb 40%, #fdf2ff 100%);
+      color: #111827;
+    }
+    main {
+      max-width: 960px;
+      margin: 2rem auto 3rem;
+      padding: 2.5rem 2rem 3rem;
+      background-color: #ffffff;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 45px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(148, 163, 184, 0.12);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.03em;
+      text-align: center;
+      color: #0f172a;
+      padding: 1rem 1.5rem;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #dbeafe, #e0f2fe);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(148, 163, 184, 0.35);
+    }
+    h2 {
+      font-size: 1.6rem;
+      margin-top: 2.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid rgba(37, 99, 235, 0.18);
+      padding-bottom: 0.35rem;
+      color: #0f172a;
+    }
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 1.75rem;
+      color: #0f172a;
+    }
+    p {
+      margin: 0.5rem 0 0.75rem;
+    }
+    code {
+      font-family: "Fira Code", Menlo, Monaco, Consolas, "Courier New", monospace;
+      background-color: #f3f4ff;
+      padding: 0.12rem 0.3rem;
+      border-radius: 4px;
+      font-size: 0.95em;
+      color: #1d4ed8;
+    }
+    pre {
+      background: linear-gradient(145deg, #020617, #020617 50%, #0b1120);
+      color: #e5e7eb;
+      padding: 1rem 1.1rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      margin: 0.75rem 0 1.5rem;
+      border: 1px solid rgba(15, 23, 42, 0.6);
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    .note, .exercise {
+      padding: 0.9rem 1.1rem;
+      margin: 1rem 0 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      border: 1px solid transparent;
+    }
+    .note {
+      border-left: 4px solid #2563eb;
+      background: radial-gradient(circle at top left, #eff6ff 0, #e0f2fe 45%, #eef2ff 100%);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow:
+        0 10px 25px rgba(15, 23, 42, 0.08),
+        0 0 0 1px rgba(191, 219, 254, 0.9);
+    }
+    .exercise {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ecfdf3, #f0fdf4);
+      border-color: rgba(22, 163, 74, 0.4);
+    }
+    .exercise-title {
+      font-weight: 650;
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 0.8rem;
+      color: #166534;
+    }
+    ol, ul {
+      padding-left: 1.4rem;
+    }
+    li {
+      margin: 0.25rem 0;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Creating MCP File System &amp; Database Servers – Student Guide</h1>
+
+  <div class="note">
+    <strong>How to use this guide</strong>
+    <ol>
+      <li>Open this HTML guide side‑by‑side with the notebook <code>00-MCP-Student-guide.ipynb</code>.</li>
+      <li>For each step, create a <strong>new cell</strong> in your notebook and copy the corresponding code blocks.</li>
+      <li>Run cells one‑by‑one and verify the outputs before moving to the next step.</li>
+      <li>Use this as a reference when wiring up MCP servers with Claude Desktop, stdio clients, SSE clients, LangChain, and AutoGen.</li>
+    </ol>
+  </div>
+
+  <p>
+    This guide walks you through creating and using multiple MCP servers:
+    a <strong>File System Server</strong>, a <strong>Database Server</strong> (stdio),
+    an <strong>SSE Database Server</strong>, and clients built with
+    <strong>plain Python</strong>, <strong>LangChain</strong>, and <strong>AutoGen</strong>.
+  </p>
+
+  <h2>Step 1: Introduction to MCP</h2>
+  <p>
+    The Model‑Context‑Protocol (MCP) is a framework that allows language models to interact with external tools
+    and resources in a structured way. It enables you to expose functions and resources from your Python code
+    to a language model, which can then call these functions to perform actions.
+  </p>
+
+  <h2>Step 2: Installing the MCP CLI</h2>
+  <p>
+    To get started, you need to install the <code>mcp-cli</code>. This command‑line tool helps you manage and run MCP servers.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task – Install MCP CLI</div>
+    <p>In your terminal (not inside the notebook), install the MCP CLI with:</p>
+  </div>
+
+  <pre><code>pip install "mcp[cli]"</code></pre>
+
+  <h2>Step 3: Creating the <code>01-FileSystemServer.py</code></h2>
+  <p>
+    Next, you&rsquo;ll build a <strong>File System Server</strong>. This MCP server exposes tools for interacting with the
+    file system, such as listing files, reading and writing files, creating directories, and deleting files.
+  </p>
+  <p>
+    Copy the code below into a file named <code>01-FileSystemServer.py</code> in your workspace.
+  </p>
+
+  <pre><code># FileSystemServer.py
+# install this to claude desktop using mcp install FileSystemServer.py
+
+from mcp.server.fastmcp import FastMCP
+from pathlib import Path
+from typing import List
+
+# Create an MCP server
+mcp = FastMCP("FileSystemServer")
+
+@mcp.tool()
+def list_files(directory: str) -> List:
+    """List all files in a directory"""
+    try:
+        return [f.absolute() for f in Path(directory).iterdir() if f.is_file()]
+    
+    except Exception as e:
+        return [f"Error: {str(e)}"]
+
+@mcp.tool()
+def read_file(file_path: str) -> str:
+    """Read contents of a file"""
+    try:
+        with open(file_path, 'r') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@mcp.tool()
+def write_file(file_path: str, content: str) -> str:
+    """Write content to a file"""
+    try:
+        with open(file_path, 'w') as f:
+            f.write(content)
+            return f"File written successfully to  {f.name}"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@mcp.tool()
+def create_directory(directory: str) -> str:
+    """Create a new directory"""
+    try:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        return "Directory created successfully"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@mcp.tool()
+def delete_file(file_path: str) -> str:
+    """Delete a file"""
+    try:
+        Path(file_path).unlink()
+        return "File deleted successfully"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+@mcp.resource("greeting://{name}")
+def get_greeting(name: str) -> str:
+    """Get a personalized greeting"""
+    return f"Hello, {name}!"
+
+@mcp.resource("users://{user_id}/profile")
+def get_user_profile(user_id: str) -> str:
+    """Dynamic user data"""
+    return f"Profile data for user {user_id}"
+
+if __name__ == "__main__": 
+    mcp.run()</code></pre>
+
+  <h2>Step 4: Installing the File System Server</h2>
+  <p>
+    To make the server available to clients like Claude Desktop, you need to install it using the
+    <code>mcp</code> command‑line tool. This command registers the server and its tools.
+  </p>
+  <p>
+    Open your terminal, navigate to the directory where you saved <code>01-FileSystemServer.py</code>,
+    and run:
+  </p>
+
+  <pre><code>mcp install 01-FileSystemServer.py</code></pre>
+
+  <h2>Step 5: Configure Claude Desktop</h2>
+  <p>
+    After installing the server, the <code>mcp install</code> command will automatically update the
+    Claude Desktop configuration file. By default, it may use <code>uv</code> to run the server,
+    which you might want to change to <code>python</code>.
+  </p>
+  <ol>
+    <li>
+      <strong>Locate the configuration file.</strong> On Windows, it&rsquo;s typically located at a path similar to:<br />
+      <code>C:\Users\&lt;YourUsername&gt;\AppData\Roaming\Claude\claude_desktop_config.json</code>
+    </li>
+    <li>
+      <strong>Edit the configuration file.</strong> Open <code>claude_desktop_config.json</code> in a text editor.
+      You will see an entry for <code>FileSystemServer</code> that was added by <code>mcp install</code>.
+    </li>
+    <li>
+      <strong>Modify the server command.</strong> Change the <code>command</code> from <code>uv</code> (or a path to
+      <code>uv.exe</code>) to <code>python</code>, and ensure the <code>args</code> point to the correct absolute path
+      of your <code>01-FileSystemServer.py</code> script.
+    </li>
+  </ol>
+
+  <p>Here is an example configuration (update the path to match your environment):</p>
+
+  <pre><code>{
+  "mcpServers": {
+    "SivaFileSystemMCPServer": {
+      "command": "python",
+      "args": [
+        "C:\\path\\to\\your\\workspace\\01-FileSystemServer.py"
+      ]
+    }
+  }
+}</code></pre>
+
+  <h2>Step 6: Interact with the File System Server in Claude Desktop</h2>
+  <p>
+    Now that your server is installed and configured, you can start interacting with it through Claude Desktop:
+  </p>
+  <ol>
+    <li>Open Claude Desktop.</li>
+    <li>Start a new chat.</li>
+    <li>Ask questions that use the file system tools.</li>
+  </ol>
+  <p>Example prompts:</p>
+  <ul>
+    <li>&ldquo;List all the files in the current directory.&rdquo;</li>
+    <li>&ldquo;Create a new directory named <code>my_test_dir</code>.&rdquo;</li>
+    <li>&ldquo;Write &lsquo;Hello from Claude!&rsquo; into a file named <code>my_test_dir/greeting.txt</code>.&rdquo;</li>
+    <li>&ldquo;Read the content of the file <code>my_test_dir/greeting.txt</code>.&rdquo;</li>
+    <li>&ldquo;Delete the file <code>my_test_dir/greeting.txt</code>.&rdquo;</li>
+  </ul>
+  <p>Claude will use the <code>FileSystemServer</code> you created to execute these commands.</p>
+
+  <h2>Step 7: Create and Install the Database Server</h2>
+  <p>
+    Next, you will create a second MCP server to handle database operations. This server provides tools to:
+    connect to a SQLite database, list tables, get schemas, and execute queries.
+  </p>
+  <p>
+    You will be provided with a <code>fintech.db</code> SQLite database file. Copy this file to
+    <code>C:\database</code>.
+  </p>
+  <p>
+    Then copy the code below into a file named <code>03-DatabaseServer.py</code>.
+  </p>
+
+  <pre><code>from mcp.server.fastmcp import FastMCP
+import sqlite3
+from typing import List, Dict, Any, Optional
+from pathlib import Path
+
+# Create an MCP server
+mcp = FastMCP(name="DatabaseServer")
+
+@mcp.tool()
+def connect_database(db_path: str) -> str:
+    """Connect to a SQLite database"""
+    try:
+        # Ensure the directory exists
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        # Test connection
+        conn = sqlite3.connect(db_path)
+        conn.close()
+        return f"Successfully connected to database at {db_path}"
+    except Exception as e:
+        return f"Error connecting to database: {str(e)}"
+
+@mcp.tool()
+def list_tables(db_path: str) -> List[str]:
+    """List all tables in the database"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return tables
+    except Exception as e:
+        return [f"Error listing tables: {str(e)}"]
+
+@mcp.tool()
+def get_table_schema(db_path: str, table_name: str) -> List[Dict[str, str]]:
+    """Get schema information for a specific table"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({table_name});")
+        columns = []
+        for row in cursor.fetchall():
+            columns.append({
+                "name": row[1],
+                "type": row[2],
+                "notnull": bool(row[3]),
+                "default": row[4],
+                "pk": bool(row[5])
+            })
+        conn.close()
+        return columns
+    except Exception as e:
+        return [{"error": f"Error getting schema: {str(e)}"}]
+
+@mcp.tool()
+def execute_query(db_path: str, query: str) -> List[Dict[str, Any]]:
+    """Execute a SQL query and return results"""
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query)
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return results
+    except Exception as e:
+        return [{"error": f"Error executing query: {str(e)}"}]
+
+if __name__ == "__main__":
+    mcp.run()</code></pre>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task – Install the Database Server</div>
+    <p>From your terminal, install the database server script:</p>
+  </div>
+
+  <pre><code>mcp install 03-DatabaseServer.py</code></pre>
+
+  <p>
+    Next, update <code>claude_desktop_config.json</code> again to ensure the <code>DatabaseServer</code> also uses
+    the <code>python</code> command. Your configuration file&rsquo;s <code>mcpServers</code> section should look similar
+    to this (update paths as needed):
+  </p>
+
+  <pre><code>{
+  "mcpServers": {
+    "FileSystemServer": {
+      "command": "python",
+      "args": [
+        "C:\\path\\to\\your\\workspace\\01-FileSystemServer.py"
+      ]
+    },
+    "DatabaseServer": {
+      "command": "python",
+      "args": [
+        "C:\\path\\to\\your\\workspace\\03-DatabaseServer.py"
+      ]
+    }
+  }
+}</code></pre>
+
+  <h2>Step 8: Interact with Both Servers</h2>
+  <p>
+    With both <code>FileSystemServer</code> and <code>DatabaseServer</code> configured, you can ask Claude Desktop
+    questions that use tools from both servers.
+  </p>
+  <p>Ensure that <code>fintech.db</code> is present in the folder <code>C:\database</code>.</p>
+  <p>Example prompts:</p>
+  <ul>
+    <li>&ldquo;List the tables in the <code>c:\database\fintech.db</code> database.&rdquo;</li>
+    <li>&ldquo;What is the schema of the <code>customers</code> table in <code>c:\database\fintech.db</code>?&rdquo;</li>
+    <li>
+      &ldquo;Get the first 5 customers from the <code>customers</code> table in <code>c:\database\fintech.db</code>
+      and write the result to a file named <code>customers.txt</code>.&rdquo;
+    </li>
+    <li>&ldquo;Read the <code>customers.txt</code> file.&rdquo;</li>
+    <li>&ldquo;List all files in the current directory.&rdquo;</li>
+  </ul>
+
+  <h2>Step 9: Creating a Stdio Client for the Database Server</h2>
+  <p>
+    In addition to Claude Desktop, you can write your own Python clients that connect directly to MCP servers.
+    This is useful for automation or integrating MCP tools with other applications.
+  </p>
+  <p>
+    The code below is a <strong>stdio client</strong> for <code>DatabaseServer</code>. Save it as
+    <code>04-DatabaseServerClient.py</code>.
+  </p>
+
+  <pre><code>from mcp import ClientSession, StdioServerParameters, types
+from mcp.client.stdio import stdio_client
+import asyncio
+
+# Create server parameters for stdio connection
+server_params = StdioServerParameters(
+    command="python",  # Executable
+    args=["03-DatabaseServer.py"],  # Server script
+    env=None,
+)
+
+
+async def run():
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(
+            read, write
+        ) as session:
+            # Initialize the connection
+            await session.initialize()
+
+            # List available tools
+            tools = await session.list_tools()
+            print("Available tools:", tools)
+
+            db_path = "c:\\database\\fintech.db"
+
+            # List all tables
+            tables = await session.call_tool("list_tables", {"db_path": db_path})
+            print("Tables in database:", tables)
+
+            # Get table schema
+            schema = await session.call_tool("get_table_schema", {
+                "db_path": db_path,
+                "table_name": "customers"
+            })
+            print("Table schema for customers:", schema)
+
+            # Execute a query
+            results = await session.call_tool("execute_query", {
+               "db_path": db_path,
+               "query": "SELECT * FROM customers LIMIT 5"
+            })
+            print("First 5 customers:", results)
+
+if __name__ == "__main__":
+    asyncio.run(run())</code></pre>
+
+  <p>
+    Run the client from your terminal (in the folder where the scripts are stored):
+  </p>
+
+  <pre><code>python 04-DatabaseServerClient.py</code></pre>
+
+  <p>
+    This client will start <code>DatabaseServer</code>, connect to <code>fintech.db</code>, list tables, fetch the
+    schema of the <code>customers</code> table, and retrieve the first 5 rows, printing everything to the console.
+  </p>
+
+  <h2>Step 10: Creating a Database Server with SSE</h2>
+  <p>
+    MCP servers can also communicate over HTTP using <strong>Server‑Sent Events (SSE)</strong>. This enables
+    web‑based clients to call your tools over HTTP.
+  </p>
+  <p>
+    The following code creates an SSE‑based version of <code>DatabaseServer</code>. Save this as
+    <code>05-DatabaseServerSSE.py</code>.
+  </p>
+
+  <pre><code>from mcp.server.fastmcp import FastMCP
+import sqlite3
+from typing import List, Dict, Any
+from pathlib import Path
+
+# Create an MCP server
+mcp = FastMCP(name="DatabaseServerSSE",port=8000)
+
+@mcp.tool()
+def list_tables(db_path: str) -> List[str]:
+    """List all tables in the database"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return tables
+    except Exception as e:
+        return [f"Error listing tables: {str(e)}"]
+
+@mcp.tool()
+def get_table_schema(db_path: str, table_name: str) -> List[Dict[str, str]]:
+    """Get schema information for a specific table"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({table_name});")
+        columns = []
+        for row in cursor.fetchall():
+            columns.append({
+                "name": row[1],
+                "type": row[2],
+                "notnull": bool(row[3]),
+                "default": row[4],
+                "pk": bool(row[5])
+            })
+        conn.close()
+        return columns
+    except Exception as e:
+        return [{"error": f"Error getting schema: {str(e)}"}]
+
+@mcp.tool()
+def execute_query(db_path: str, query: str) -> List[Dict[str, Any]]:
+    """Execute a SQL query and return results"""
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query)
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return results
+    except Exception as e:
+        return [{"error": f"Error executing query: {str(e)}"}]
+
+if __name__ == "__main__":
+    # Run the server with SSE protocol on port 8000
+    mcp.run("sse")</code></pre>
+
+  <p>
+    Start the SSE server with:
+  </p>
+
+  <pre><code>python 05-DatabaseServerSSE.py</code></pre>
+
+  <p>
+    This will start an HTTP server on <code>http://127.0.0.1:8000</code> that exposes MCP tools over SSE.
+  </p>
+
+  <h2>Step 11: Creating an SSE Client</h2>
+  <p>
+    Now you will create a client that talks to the SSE‑based <code>DatabaseServerSSE</code>. Save the following as
+    <code>06-DatabaseSSEClient.py</code>.
+  </p>
+
+  <pre><code>from mcp import ClientSession
+from mcp.client.sse import sse_client
+import asyncio
+
+async def run():
+    # The URL for the MCP SSE endpoint
+    async with sse_client("http://localhost:8000/sse") as streams:
+        async with ClientSession(streams[0], streams[1]) as session:
+            await session.initialize()
+            
+            tools = await session.list_tools()
+            print("Available tools:", tools)
+
+            db_path = "c:\\database\\fintech.db"
+
+            # List all tables
+            tables = await session.call_tool("list_tables", {"db_path": db_path})
+            print("Tables in database:", tables)
+
+            # Get table schema
+            schema = await session.call_tool("get_table_schema", {
+                "db_path": db_path,
+                "table_name": "customers"
+            })
+            print("Table schema for customers:", schema)
+
+            # Execute a query
+            results = await session.call_tool("execute_query", {
+               "db_path": db_path,
+               "query": "SELECT * FROM customers LIMIT 5"
+            })
+            print("First 5 customers:", results)
+
+if __name__ == "__main__":
+    asyncio.run(run())</code></pre>
+
+  <p>
+    Before running the client, make sure <code>05-DatabaseServerSSE.py</code> is already running.
+    Then in a separate terminal, run:
+  </p>
+
+  <pre><code>python 06-DatabaseSSEClient.py</code></pre>
+
+  <p>
+    The client connects to the SSE server, lists tools, lists tables, shows schema, and fetches sample rows from
+    <code>fintech.db</code>.
+  </p>
+
+  <h2>Step 12: Creating a Database Server with Streamable HTTP</h2>
+  <p>
+    MCP servers can also use <strong>Streamable HTTP</strong> transport, which provides a stateless alternative to SSE.
+    This approach is recommended for production environments and supports both JSON responses and SSE streaming.
+  </p>
+  <p>
+    The following code creates a Streamable HTTP version of <code>DatabaseServer</code>. This implementation uses
+    stateless HTTP with JSON responses for optimal performance. Save this as <code>07-DatabaseServerStreamableHTTP.py</code>.
+  </p>
+
+  <pre><code>from mcp.server.fastmcp import FastMCP
+import sqlite3
+from typing import List, Dict, Any
+from pathlib import Path
+
+# Create a stateless MCP server with JSON responses (recommended)
+mcp = FastMCP("DatabaseServerStreamable", stateless_http=True, json_response=True)
+
+# Other configuration options:
+# Stateless server with SSE streaming responses
+# mcp = FastMCP("DatabaseServerStreamable", stateless_http=True)
+
+# Stateful server with session persistence
+# mcp = FastMCP("DatabaseServerStreamable")
+
+@mcp.tool()
+def list_tables(db_path: str) -> List[str]:
+    """List all tables in the database"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return tables
+    except Exception as e:
+        return [f"Error listing tables: {str(e)}"]
+
+@mcp.tool()
+def get_table_schema(db_path: str, table_name: str) -> List[Dict[str, str]]:
+    """Get schema information for a specific table"""
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({table_name});")
+        columns = []
+        for row in cursor.fetchall():
+            columns.append({
+                "name": row[1],
+                "type": row[2],
+                "notnull": bool(row[3]),
+                "default": row[4],
+                "pk": bool(row[5])
+            })
+        conn.close()
+        return columns
+    except Exception as e:
+        return [{"error": f"Error getting schema: {str(e)}"}]
+
+@mcp.tool()
+def execute_query(db_path: str, query: str) -> List[Dict[str, Any]]:
+    """Execute a SQL query and return results"""
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(query)
+        results = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return results
+    except Exception as e:
+        return [{"error": f"Error executing query: {str(e)}"}]
+
+if __name__ == "__main__":
+    # Run server with streamable_http transport
+    mcp.run(transport="streamable-http")</code></pre>
+
+  <p>
+    Start the Streamable HTTP server with:
+  </p>
+
+  <pre><code>python 07-DatabaseServerStreamableHTTP.py</code></pre>
+
+  <p>
+    This will start an HTTP server on <code>http://localhost:8000/mcp</code> that exposes MCP tools over
+    streamable HTTP with JSON responses.
+  </p>
+
+  <h2>Step 13: Creating a Streamable HTTP Client</h2>
+  <p>
+    Now you will create a client that connects to the Streamable HTTP <code>DatabaseServer</code>. This client
+    establishes a connection using the streamable HTTP transport and interacts with the database tools.
+    Save the following as <code>08-DatabaseStreamableHTTPClient.py</code>.
+  </p>
+
+  <pre><code>from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+import asyncio
+
+
+async def run():
+    # Connect to a streamable HTTP server
+    async with streamable_http_client("http://localhost:8000/mcp") as (
+        read_stream,
+        write_stream,
+        _,
+    ):
+        # Create a session using the client streams
+        async with ClientSession(read_stream, write_stream) as session:
+            # Initialize the connection
+            await session.initialize()
+            
+            # List available tools
+            tools = await session.list_tools()
+            print(f"Available tools: {[tool.name for tool in tools.tools]}")
+
+            db_path = "c:\\database\\fintech.db"
+
+            # List all tables
+            tables = await session.call_tool("list_tables", {"db_path": db_path})
+            print("Tables in database:", tables)
+
+            # Get table schema
+            schema = await session.call_tool("get_table_schema", {
+                "db_path": db_path,
+                "table_name": "customers"
+            })
+            print("Table schema for customers:", schema)
+
+            # Execute a query
+            results = await session.call_tool("execute_query", {
+               "db_path": db_path,
+               "query": "SELECT * FROM customers LIMIT 5"
+            })
+            print("First 5 customers:", results)
+
+
+if __name__ == "__main__":
+    asyncio.run(run())</code></pre>
+
+  <p>
+    Before running the client, ensure <code>07-DatabaseServerStreamableHTTP.py</code> is already running.
+    Then in a separate terminal, run:
+  </p>
+
+  <pre><code>python 08-DatabaseStreamableHTTPClient.py</code></pre>
+
+  <p>
+    The client connects to the Streamable HTTP server, lists available tools, lists tables, shows the schema for
+    the <code>customers</code> table, and fetches the first 5 rows from <code>fintech.db</code>.
+  </p>
+
+  <h2>Step 14: Integrating MCP Database Server with LangChain</h2>
+  <p>
+    LangChain can interact with MCP servers using the <code>langchain-mcp-adapters</code> library. This enables
+    LangChain agents to use tools exposed by your MCP servers as if they were native LangChain tools.
+  </p>
+
+  <div class="exercise">
+    <div class="exercise-title">Your Task – Install LangChain MCP Adapters</div>
+    <p>First, install the required package from your terminal:</p>
+  </div>
+
+  <pre><code>pip install langchain-mcp-adapters langchain</code></pre>
+
+  <p>
+    Now create a LangChain agent that uses the <code>DatabaseServer</code>. This example demonstrates using
+    <code>MultiServerMCPClient</code> to connect to a stdio‑based MCP server and integrate its tools with a
+    LangChain agent. Save the following as <code>09-LangChainDatabaseAgent.py</code>.
+  </p>
+
+  <pre><code>from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain.agents import create_agent
+import asyncio
+import os
+
+# Ensure you have OPENAI_API_KEY set in your environment
+# os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+
+
+async def main():
+    # Create a MultiServerMCPClient with the Database Server
+    client = MultiServerMCPClient(
+        {
+            "database": {
+                "transport": "stdio",  # Local subprocess communication
+                "command": "python",
+                # Update with the absolute path to your DatabaseServer script
+                "args": ["C:\\path\\to\\your\\workspace\\03-DatabaseServer.py"],
+            }
+        }
+    )
+
+    # Get tools from the MCP server
+    tools = await client.get_tools()
+    print(f"Available tools: {[tool.name for tool in tools]}")
+
+    # Create a LangChain agent using create_agent with gpt-4o-mini
+    agent = create_agent(
+        "openai:gpt-4o-mini",  # Model specification
+        tools  # MCP tools
+    )
+
+    # Example queries
+    print("\n" + "="*80)
+    print("Query 1: List all tables in the fintech database")
+    print("="*80)
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": "List all tables in the database located at c:\\database\\fintech.db"}]
+    })
+    print(f"\nResult: {result['messages'][-1].content}\n")
+
+    print("\n" + "="*80)
+    print("Query 2: Get schema for customers table")
+    print("="*80)
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": "What is the schema of the customers table in c:\\database\\fintech.db?"}]
+    })
+    print(f"\nResult: {result['messages'][-1].content}\n")
+
+    print("\n" + "="*80)
+    print("Query 3: Get first 3 customers")
+    print("="*80)
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": "Get the first 3 customers from the customers table in c:\\database\\fintech.db"}]
+    })
+    print(f"\nResult: {result['messages'][-1].content}\n")
+
+    # Close the client
+    await client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+
+  <p>
+    Before running this script:
+  </p>
+  <ol>
+    <li>Set your OpenAI API key as an environment variable: <code>set OPENAI_API_KEY=your-api-key-here</code></li>
+    <li>Update the <code>args</code> path to point to your <code>03-DatabaseServer.py</code> file.</li>
+    <li>Ensure <code>fintech.db</code> is present at <code>c:\database\fintech.db</code>.</li>
+  </ol>
+
+  <p>
+    Run the script:
+  </p>
+
+  <pre><code>python 09-LangChainDatabaseAgent.py</code></pre>
+
+  <p>
+    The LangChain agent will use the MCP server&rsquo;s tools to answer questions about the database, showing
+    its reasoning process along the way.
+  </p>
+
+  <h2>Step 15: Using Multiple MCP Servers with LangChain</h2>
+  <p>
+    LangChain&rsquo;s <code>MultiServerMCPClient</code> can connect to multiple MCP servers simultaneously,
+    combining their tools into a single agent. This allows your agent to interact with both the file system
+    and the database.
+  </p>
+  <p>
+    The following example connects to both <code>FileSystemServer</code> (stdio) and
+    <code>DatabaseServerStreamable</code> (streamable HTTP). Save this as <code>10-LangChainMultiServerAgent.py</code>.
+  </p>
+
+  <pre><code>from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain.agents import create_agent
+import asyncio
+import os
+
+# Ensure you have OPENAI_API_KEY set in your environment
+# os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+
+
+async def main():
+    # Create a MultiServerMCPClient with both FileSystem and Database servers
+    client = MultiServerMCPClient(
+        {
+            "filesystem": {
+                "transport": "stdio",  # Local subprocess communication
+                "command": "python",
+                # Update with the absolute path to your FileSystemServer script
+                "args": ["C:\\path\\to\\your\\workspace\\01-FileSystemServer.py"],
+            },
+            "database": {
+                "transport": "http",  # Streamable HTTP transport
+                # Make sure DatabaseServerStreamableHTTP is running on port 8000
+                "url": "http://localhost:8000/mcp",
+            }
+        }
+    )
+
+    # Get tools from all MCP servers
+    tools = await client.get_tools()
+    print(f"Available tools: {[tool.name for tool in tools]}")
+
+    # Create a LangChain agent using create_agent with gpt-4o-mini
+    agent = create_agent(
+        "openai:gpt-4o-mini",  # Model specification
+        tools  # Combined MCP tools from multiple servers
+    )
+
+    # Example: Query database and save results to a file
+    print("\n" + "="*80)
+    print("Multi-Server Task: Query database and save results to file")
+    print("="*80)
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": """First, get the first 5 customers from the customers table in c:\\database\\fintech.db.
+        Then, write these results to a file named c:\\database\\top5_customers.txt.
+        Finally, read and show me the contents of the file."""}]
+    })
+    print(f"\nResult: {result['messages'][-1].content}\n")
+
+    # Example: List files in a directory
+    print("\n" + "="*80)
+    print("File System Task: List files in database directory")
+    print("="*80)
+    result = await agent.ainvoke({
+        "messages": [{"role": "user", "content": "List all files in the c:\\database directory"}]
+    })
+    print(f"\nResult: {result['messages'][-1].content}\n")
+
+    # Close the client
+    await client.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+
+  <p>
+    Before running this script:
+  </p>
+  <ol>
+    <li>Ensure your OpenAI API key is set: <code>set OPENAI_API_KEY=your-api-key-here</code></li>
+    <li>Update the <code>args</code> path for the FileSystem server to point to your <code>01-FileSystemServer.py</code> file.</li>
+    <li>Start the <code>07-DatabaseServerStreamableHTTP.py</code> server in a separate terminal:
+      <pre><code>python 07-DatabaseServerStreamableHTTP.py</code></pre>
+    </li>
+    <li>Ensure <code>fintech.db</code> is present at <code>c:\database\fintech.db</code>.</li>
+  </ol>
+
+  <p>
+    Then run the multi‑server agent:
+  </p>
+
+  <pre><code>python 10-LangChainMultiServerAgent.py</code></pre>
+
+  <p>
+    The agent will demonstrate using tools from both servers: querying the database, writing results to a file,
+    and reading files—all orchestrated through a single LangChain agent with access to multiple MCP servers.
+  </p>
+
+  <h2>Wrap‑Up</h2>
+  <p>In this MCP student lab, you:</p>
+  <ul>
+    <li>Installed the MCP CLI and created a File System MCP server.</li>
+    <li>Configured Claude Desktop to talk to your MCP servers.</li>
+    <li>Built a Database MCP server and interacted with it via stdio, SSE, and streamable HTTP clients.</li>
+    <li>Integrated MCP tools into LangChain agents, including a multi‑server agent.</li>
+    <li>Connected MCP tools to AutoGen for advanced multi‑agent workflows.</li>
+  </ul>
+  <p>
+    Use these patterns as a blueprint for building your own MCP servers and clients across different frameworks and tools.
+  </p>
+
+</main>
+</body>
+</html>
+
+

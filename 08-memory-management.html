@@ -507,10 +507,10 @@ Drawbacks:
 
   <h3>6.1 Create a Summarization-Enabled Agent</h3>
   <p>
-    The <code>SummarizationMiddleware</code> monitors token usage and, once a threshold is reached,
-    calls a cheaper model to summarize the conversation so far.
-    The main agent then reads this summary as part of its context, preserving important information
-    without keeping every raw message.
+    The <code>SummarizationMiddleware</code> now triggers after every 10 messages and keeps the latest 4
+    verbatim messages, summarizing the rest with a lightweight model.
+    The main agent reads that summary as part of its context, preserving important information without
+    keeping every raw message.
   </p>
 
   <div class="exercise">
@@ -537,16 +537,9 @@ summarize_agent = create_agent(
     to understand the customer's history and provide personalized service.""",
     middleware=[
         SummarizationMiddleware(
-            model= "gpt-4.1-mini",  # Cheaper model for summarization
-            max_tokens_before_summary=1000,  # Trigger summarization at 1000 tokens
-            messages_to_keep=8,  # Keep last 8 messages after summary
-            summary_prompt="""Summarize the conversation history for a customer service context. Include:
-            - Customer name and key information
-            - Issues discussed and resolutions provided
-            - Any important status updates or changes made
-            - Current context that would be relevant for continuing the conversation
-            
-            Keep the summary concise but comprehensive."""
+        model=ChatOpenAI(model="gpt-4.1-mini"),
+        trigger=("messages", 10),
+        keep=("messages", 4)
         )
     ],
     checkpointer=InMemorySaver(),
@@ -554,7 +547,7 @@ summarize_agent = create_agent(
 
 print("📝 Summarization-enabled customer service agent created!")
 print("🧠 This agent will summarize old messages when approaching token limits.")
-print("⚙️ Settings: Max 1000 tokens before summary, keep last 8 messages")</code></pre>
+  print("⚙️ Settings: Trigger every 10 messages, keep last 4 messages verbatim")</code></pre>
 
   <h3>6.2 Trigger Summarization with an Extended Conversation</h3>
   <p>
